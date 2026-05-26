@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, type AppView } from "./components/layout/AppShell";
 import { VisualizerPanel } from "./features/visualizer/VisualizerPanel";
+import { BrunoDevTool } from "./features/devtools/BrunoDevTool";
 import { MainChartsStack } from "./features/charts/MainChartsStack";
 import type { SeriesOverlay } from "./components/charts/NirsChart";
 import { ChartControlsCard } from "./features/controls/ChartControlsCard";
@@ -1039,6 +1040,8 @@ export default function App() {
 
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
+            {view === "devtools" && <BrunoDevTool />}
+
             {view === "visualizer" && (
               <VisualizerPanel
                 useToi={settings.useToi}
@@ -1059,7 +1062,7 @@ export default function App() {
               />
             )}
 
-            {(view !== "visualizer" || visualizerMode === "full") && (
+            {view !== "devtools" && (view !== "visualizer" || visualizerMode === "full") && (
               <MainChartsStack
                 channel1={channel1}
                 channel2={channel2}
@@ -1102,7 +1105,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="space-y-4">
+          {view !== "devtools" && <div className="space-y-4">
             <DeviceCard
               settings={settings}
               setSettings={setSettings}
@@ -1202,7 +1205,7 @@ export default function App() {
               onClearSnapshots={() => setCalculatedValues([])}
               onExportSnapshots={exportCalculatedValues}
             />
-          </div>
+          </div>}
         </div>
     </AppShell>
   );

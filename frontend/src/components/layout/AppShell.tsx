@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   Activity,
   BarChart3,
+  Wrench,
   FileUp,
   Gauge,
   Pause,
@@ -13,7 +14,7 @@ import {
 import { Button } from "../ui/button";
 import type { DeviceKind } from "../../types/nirs";
 
-export type AppView = "acquisition" | "analysis" | "visualizer";
+export type AppView = "acquisition" | "analysis" | "visualizer" | "devtools";
 
 type AppShellProps = {
   view: AppView;
@@ -53,6 +54,7 @@ const navItems = [
   ["acquisition", Gauge, "Acquisition"],
   ["analysis", BarChart3, "Analysis"],
   ["visualizer", Activity, "Visualizer"],
+  ["devtools", Wrench, "Dev Tools"],
 ] as const;
 
 export function AppShell({
@@ -90,6 +92,7 @@ export function AppShell({
 }: AppShellProps) {
   const isAnalysis = view === "analysis";
   const isVisualizer = view === "visualizer";
+  const isDevTools = view === "devtools";
   const isAcquisition = view === "acquisition";
 
   return (
@@ -167,6 +170,8 @@ export function AppShell({
                         onChange={(event) => onLoadVisualizerFiles(event.target.files)}
                       />
                     </label>
+                  ) : isDevTools ? (
+                    <div className="px-2 py-2 text-sm text-slate-500">Use the BRUNO panel import controls.</div>
                   ) : (
                     <>
                       <button
