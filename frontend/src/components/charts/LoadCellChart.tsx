@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import * as d3 from "d3";
 import type { Point } from "../../types/nirs";
 import { formatNumber } from "../../lib/utils";
+import { useElementSize } from "../../lib/useElementSize";
 
 export type LoadCellOverlay = {
   min: Point;
@@ -10,9 +11,7 @@ export type LoadCellOverlay = {
   intercept: number;
 };
 
-const WIDTH = 920;
-const HEIGHT = 156;
-const PAD = { left: 56, right: 14, top: 10, bottom: 36 };
+const MARGIN = { top: 12, right: 18, bottom: 34, left: 60 };
 const OVERLAY_COLOR = "#b45309";
 
 export function LoadCellChart({
@@ -30,6 +29,7 @@ export function LoadCellChart({
   overlay?: LoadCellOverlay;
   overlayWindow?: [number, number];
 }) {
+  const { ref, width, height } = useElementSize<HTMLDivElement>({ width: 920, height: 170 });
   const svgRef = useRef<SVGSVGElement | null>(null);
   const resetRef = useRef<() => void>(() => undefined);
   const [isZoomed, setIsZoomed] = useState(false);
@@ -38,11 +38,14 @@ export function LoadCellChart({
   useEffect(() => {
     const svgEl = svgRef.current;
     if (!svgEl) return;
+    const plotW = width - MARGIN.left - MARGIN.right;
+    const plotH = height - MARGIN.top - MARGIN.bottom;
+    if (plotW <= 0 || plotH <= 0) return;
 
     const baseMinX = data[0]?.time ?? 0;
     const baseMaxX = data.at(-1)?.time ?? 1;
-    const x0 = d3.scaleLinear().domain([baseMinX, baseMaxX]).range([PAD.left, WIDTH - PAD.right]);
-    const y0 = d3.scaleLinear().domain([yDomain[0], yDomain[1]]).range([HEIGHT - PAD.bottom, PAD.top]).clamp(true);
+    const x0 = d3.scaleLinear().domain([baseMinX, baseMaxX]).range([MARGIN.left, width - MARGIN.right]);
+    const y0 = d3.scaleLinear().domain([yDomain[0], yDomain[1]]).range([height - MARGIN.bottom, MARGIN.top]).clamp(true);
 
     const svg = d3.select(svgEl);
     svg.selectAll("*").remove();
@@ -51,21 +54,15 @@ export function LoadCellChart({
       .append("clipPath")
       .attr("id", `clip-${clipId}`)
       .append("rect")
-      .attr("x", PAD.left)
-      .attr("y", PAD.top)
-      .attr("width", WIDTH - PAD.left - PAD.right)
-      .attr("height", HEIGHT - PAD.top - PAD.bottom);
+      .attr("x", MARGIN.left)
+      .attr("y", MARGIN.top)
+      .attr("width", plotW)
+      .attr("height", plotH);
 
-    svg
-      .append("rect")
-      .attr("x", PAD.left)
-      .attr("y", PAD.top)
-      .attr("width", WIDTH - PAD.left - PAD.right)
-      .attr("height", HEIGHT - PAD.top - PAD.bottom)
-      .attr("fill", "#fbfdfe");
+    svg.append("rect").attr("x", MARGIN.left).attr("y", MARGIN.top).attr("width", plotW).attr("height", plotH).attr("fill", "#fbfdfe");
 
-    const gGrid = svg.append("g");
-    const gAxisX = svg.append("g").attr("transform", `translate(0, ${HEIGHT - PAD.bottom})`);
+    const gGridY = svg.append("g").attr("transform", `translate(${MARGIN.left}, 0)`);
+    const gAxisX = svg.append("g").attr("transform", `translate(0, ${height - MARGIN.bottom})`);
     const gMarks = svg.append("g").attr("clip-path", `url(#clip-${clipId})`);
     const gLine = svg.append("g").attr("clip-path", `url(#clip-${clipId})`);
     const gOverlay = svg.append("g").attr("clip-path", `url(#clip-${clipId})`).attr("pointer-events", "none");
@@ -73,16 +70,16 @@ export function LoadCellChart({
     svg
       .append("text")
       .attr("x", 14)
-      .attr("y", PAD.top + (HEIGHT - PAD.top - PAD.bottom) / 2)
-      .attr("transform", `rotate(-90, 14, ${PAD.top + (HEIGHT - PAD.top - PAD.bottom) / 2})`)
+      .attr("y", MARGIN.top + plotH / 2)
+      .attr("transform", `rotate(-90, 14, ${MARGIN.top + plotH / 2})`)
       .attr("text-anchor", "middle")
       .attr("fill", "#64748b")
       .attr("font-size", "11px")
       .text("Data (lbs)");
     svg
       .append("text")
-      .attr("x", (WIDTH + PAD.left - PAD.right) / 2)
-      .attr("y", HEIGHT - 2)
+      .attr("x", MARGIN.left + plotW / 2)
+      .attr("y", height - 2)
       .attr("text-anchor", "middle")
       .attr("fill", "#64748b")
       .attr("font-size", "11px")
@@ -96,36 +93,24 @@ export function LoadCellChart({
         .y((point) => sy(point.value));
 
     const draw = (sx: d3.ScaleLinear<number, number>, sy: d3.ScaleLinear<number, number>) => {
-      gGrid
-        .selectAll<SVGGElement, number>("g.gl")
-        .data(sy.ticks(3))
-        .join((enter) => enter.append("g").attr("class", "gl"))
-        .call((row) => {
-          row
-            .selectAll("line")
-            .data((d) => [d])
-            .join("line")
-            .attr("x1", PAD.left)
-            .attr("x2", WIDTH - PAD.right)
-            .attr("y1", (d) => sy(d))
-            .attr("y2", (d) => sy(d))
-            .attr("stroke", "#e8eef2");
-          row
-            .selectAll("text")
-            .data((d) => [d])
-            .join("text")
-            .attr("x", 6)
-            .attr("y", (d) => sy(d) + 4)
-            .attr("fill", "#64748b")
-            .attr("font-size", "11px")
-            .text((d) => formatNumber(d, 1));
-        });
+      gGridY
+        .call(
+          d3
+            .axisLeft(sy)
+            .ticks(3)
+            .tickSize(-plotW)
+            .tickPadding(8)
+            .tickFormat((d) => formatNumber(Number(d), 1)),
+        )
+        .call((g) => g.select(".domain").remove())
+        .call((g) => g.selectAll(".tick line").attr("stroke", "#e8eef2"))
+        .call((g) => g.selectAll("text").attr("fill", "#64748b").attr("font-size", "11px"));
 
       gAxisX
         .call(
           d3
             .axisBottom(sx)
-            .ticks(6)
+            .ticks(Math.max(2, Math.floor(plotW / 90)))
             .tickFormat((d) => `${formatNumber(Number(d), 1)}s`),
         )
         .call((g) => g.selectAll("text").attr("fill", "#64748b").attr("font-size", "11px"))
@@ -137,8 +122,8 @@ export function LoadCellChart({
         .join("line")
         .attr("x1", (m) => sx(m))
         .attr("x2", (m) => sx(m))
-        .attr("y1", PAD.top)
-        .attr("y2", HEIGHT - PAD.bottom)
+        .attr("y1", MARGIN.top)
+        .attr("y2", height - MARGIN.bottom)
         .attr("stroke", "#111827")
         .attr("stroke-dasharray", "4 4");
 
@@ -157,16 +142,7 @@ export function LoadCellChart({
         const end = overlayWindow ? Math.min(sx.domain()[1], overlayWindow[1]) : sx.domain()[1];
         const yAt = (time: number) => overlay.intercept + overlay.slope * time;
         if (end > start && Number.isFinite(yAt(start)) && Number.isFinite(yAt(end))) {
-          gOverlay
-            .append("line")
-            .attr("x1", sx(start))
-            .attr("y1", sy(yAt(start)))
-            .attr("x2", sx(end))
-            .attr("y2", sy(yAt(end)))
-            .attr("stroke", OVERLAY_COLOR)
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", "6 4")
-            .attr("opacity", 0.9);
+          gOverlay.append("line").attr("x1", sx(start)).attr("y1", sy(yAt(start))).attr("x2", sx(end)).attr("y2", sy(yAt(end))).attr("stroke", OVERLAY_COLOR).attr("stroke-width", 1.5).attr("stroke-dasharray", "6 4").attr("opacity", 0.9);
         }
         if (Number.isFinite(overlay.min.value)) {
           gOverlay.append("circle").attr("cx", sx(overlay.min.time)).attr("cy", sy(overlay.min.value)).attr("r", 3.5).attr("fill", OVERLAY_COLOR).attr("stroke", "#fff").attr("stroke-width", 1);
@@ -185,8 +161,8 @@ export function LoadCellChart({
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 64])
       .extent([
-        [PAD.left, PAD.top],
-        [WIDTH - PAD.right, HEIGHT - PAD.bottom],
+        [MARGIN.left, MARGIN.top],
+        [width - MARGIN.right, height - MARGIN.bottom],
       ])
       .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
         zx = event.transform.rescaleX(x0);
@@ -195,22 +171,20 @@ export function LoadCellChart({
         setIsZoomed(event.transform.k !== 1 || event.transform.x !== 0 || event.transform.y !== 0);
       });
 
-    svg.call(zoom).on("dblclick.zoom", () => {
-      svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity);
-    });
+    svg.call(zoom).on("dblclick.zoom", () => svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity));
     resetRef.current = () => svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity);
 
     if (onCoordinate) {
       svg.on("mousemove.coord", (event: MouseEvent) => {
         const [px, py] = d3.pointer(event, svgEl);
-        if (px < PAD.left || px > WIDTH - PAD.right || py < PAD.top || py > HEIGHT - PAD.bottom) return;
+        if (px < MARGIN.left || px > width - MARGIN.right || py < MARGIN.top || py > height - MARGIN.bottom) return;
         onCoordinate({ chart: "Load Cell", x: zx.invert(px), y: zy.invert(py) });
       });
     }
-  }, [data, marks, yDomain, overlay, overlayWindow, onCoordinate, clipId]);
+  }, [data, marks, yDomain, overlay, overlayWindow, onCoordinate, clipId, width, height]);
 
   return (
-    <section className="h-full min-h-[180px]">
+    <section className="flex h-full min-h-[180px] flex-col">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900">Load Cell</h3>
         <div className="flex items-center gap-2">
@@ -226,13 +200,9 @@ export function LoadCellChart({
           <span className="text-xs text-slate-500">{data.length} points</span>
         </div>
       </div>
-      <svg
-        ref={svgRef}
-        className="h-[calc(100%-28px)] w-full cursor-crosshair touch-none"
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        role="img"
-        aria-label="Load Cell"
-      />
+      <div ref={ref} className="relative min-h-0 w-full flex-1">
+        <svg ref={svgRef} width={width} height={height} className="absolute inset-0 h-full w-full cursor-crosshair touch-none" role="img" aria-label="Load Cell" />
+      </div>
     </section>
   );
 }

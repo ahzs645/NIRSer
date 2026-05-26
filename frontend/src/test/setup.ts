@@ -28,6 +28,14 @@ if (typeof window !== "undefined") {
   if (typeof Element.prototype.scrollIntoView !== "function") {
     Element.prototype.scrollIntoView = () => {};
   }
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    // jsdom has no layout, so observers never fire; charts then use their fallback size.
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+  }
   if (typeof window.matchMedia !== "function") {
     window.matchMedia = ((query: string) => ({
       matches: false,
