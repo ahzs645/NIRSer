@@ -73,8 +73,10 @@ export function NirsChart({
     if (plotW <= 0 || plotH <= 0) return;
 
     const seriesKeys = ALL_KEYS.filter((key) => visible?.[key] ?? true);
-    const baseMinX = xDomain[0] === "auto" ? data[0]?.time ?? 0 : xDomain[0];
-    const baseMaxX = xDomain[1] === "auto" ? data.at(-1)?.time ?? 1 : xDomain[1];
+    const rawMinX = xDomain[0] === "auto" ? data[0]?.time ?? 0 : xDomain[0];
+    const rawMaxX = xDomain[1] === "auto" ? data.at(-1)?.time ?? 1 : xDomain[1];
+    const baseMinX = Math.max(0, rawMinX);
+    const baseMaxX = Math.max(rawMaxX, baseMinX + 1e-6);
     const window = data.filter((point) => point.time >= baseMinX && point.time <= baseMaxX);
     const allY = (window.length > 0 ? window : data).flatMap((point) => seriesKeys.map((key) => point[key]));
     const baseMinY = yDomain[0] === "auto" ? Math.min(...allY, -1) : yDomain[0];
@@ -214,6 +216,10 @@ export function NirsChart({
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 64])
       .extent([
+        [MARGIN.left, MARGIN.top],
+        [width - MARGIN.right, height - MARGIN.bottom],
+      ])
+      .translateExtent([
         [MARGIN.left, MARGIN.top],
         [width - MARGIN.right, height - MARGIN.bottom],
       ])

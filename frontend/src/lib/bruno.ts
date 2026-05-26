@@ -43,6 +43,14 @@ export type BrunoResult = {
   wavelengths: number[];
 };
 
+export type BrunoMatData = {
+  wavelengths?: number[];
+  extinction?: ExtinctionRow[];
+  boundaries?: BrunoFitBounds;
+  sourceDetectorSeparations?: number[];
+  attenuation?: number[][];
+};
+
 const LOG10 = Math.log(10);
 const EPSILON = 1e-12;
 
@@ -218,6 +226,54 @@ export function parseExtinctionTable(text: string): ExtinctionRow[] {
     .map((row) => ({ wavelength: row[0], hhb: row[1], hbo2: row[2], water: row[3] }));
   if (parsed.length === 0) throw new Error("Extinction input needs wavelength, HHb, HbO2, and water columns.");
   return parsed;
+}
+
+export function fitSlopeFromAttenuation(attenuation: number[][], distances: number[]) {
+  if (attenuation.length === 0 || distances.length === 0) throw new Error("Attenuation and distance inputs are required.");
+  if (!attenuation.every((row) => row.length === distances.length)) {
+    throw new Error("Each attenuation row must have one value per source-detector separation.");
+  }
+  const meanX = mean(distances);
+  const ssXX = distances.reduce((sum, value) => sum + (value - meanX) ** 2, 0);
+  if (ssXX === 0) throw new Error("Source-detector separations must not all be identical.");
+  return attenuation.map((row) => {
+    const meanY = mean(row);
+    return row.reduce((sum, value, index) => sum + (distances[index] - meanX) * (value - meanY), 0) / ssXX;
+  });
+}
+
+export function parseAttenuationTable(text: string) {
+  const rows = parseNumericTable(text).filter((row) => row.length >= 2);
+  if (rows.length === 0) throw new Error("Attenuation input is empty.");
+  const first = rows[0];
+  const looksLikeHeader = first.length >= 3 && first[0] === 0;
+  if (looksLikeHeader) {
+    return {
+      wavelengths: rows.slice(1).map((row) => row[0]),
+      distances: first.slice(1),
+      attenuation: rows.slice(1).map((row) => row.slice(1)),
+    };
+  }
+  return {
+    wavelengths: rows.map((row) => row[0]),
+    distances: Array.from({ length: rows[0].length - 1 }, (_, index) => index + 1),
+    attenuation: rows.map((row) => row.slice(1)),
+  };
+}
+
+export function brunoMatToInputs(data: BrunoMatData) {
+  if (!data.wavelengths || !data.extinction) throw new Error("MAT file needs wavelengths and extinction variables.");
+  const slope =
+    data.attenuation && data.sourceDetectorSeparations
+      ? fitSlopeFromAttenuation(data.attenuation, data.sourceDetectorSeparations)
+      : undefined;
+  return {
+    wavelengths: data.wavelengths,
+    extinction: data.extinction,
+    bounds: data.boundaries,
+    distances: data.sourceDetectorSeparations,
+    slope,
+  };
 }
 
 export function runBrunoFit(

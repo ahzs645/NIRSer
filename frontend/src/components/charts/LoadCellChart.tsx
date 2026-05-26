@@ -42,8 +42,10 @@ export function LoadCellChart({
     const plotH = height - MARGIN.top - MARGIN.bottom;
     if (plotW <= 0 || plotH <= 0) return;
 
-    const baseMinX = data[0]?.time ?? 0;
-    const baseMaxX = data.at(-1)?.time ?? 1;
+    const rawMinX = data[0]?.time ?? 0;
+    const rawMaxX = data.at(-1)?.time ?? 1;
+    const baseMinX = Math.max(0, rawMinX);
+    const baseMaxX = Math.max(rawMaxX, baseMinX + 1e-6);
     const x0 = d3.scaleLinear().domain([baseMinX, baseMaxX]).range([MARGIN.left, width - MARGIN.right]);
     const y0 = d3.scaleLinear().domain([yDomain[0], yDomain[1]]).range([height - MARGIN.bottom, MARGIN.top]).clamp(true);
 
@@ -161,6 +163,10 @@ export function LoadCellChart({
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 64])
       .extent([
+        [MARGIN.left, MARGIN.top],
+        [width - MARGIN.right, height - MARGIN.bottom],
+      ])
+      .translateExtent([
         [MARGIN.left, MARGIN.top],
         [width - MARGIN.right, height - MARGIN.bottom],
       ])
