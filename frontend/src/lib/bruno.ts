@@ -146,7 +146,7 @@ function boundedNelderMead(
 ) {
   const n = bounds.start.length;
   const project = (point: number[]) => point.map((value, index) => clamp(value, bounds.lower[index], bounds.upper[index]));
-  let simplex = [project(bounds.start)];
+  const simplex = [project(bounds.start)];
   for (let index = 0; index < n; index += 1) {
     const point = [...bounds.start];
     const span = bounds.upper[index] - bounds.lower[index];

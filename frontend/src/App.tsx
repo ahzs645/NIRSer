@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, type AppView } from "./components/layout/AppShell";
 import { VisualizerPanel } from "./features/visualizer/VisualizerPanel";
-import { BrunoDevTool } from "./features/devtools/BrunoDevTool";
+import { DevToolsPanel } from "./features/devtools/DevToolsPanel";
 import { MainChartsStack } from "./features/charts/MainChartsStack";
 import type { SeriesOverlay } from "./components/charts/NirsChart";
 import { ChartControlsCard } from "./features/controls/ChartControlsCard";
@@ -1050,7 +1050,7 @@ export default function App() {
 
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
-            {view === "devtools" && <BrunoDevTool />}
+            {view === "devtools" && <DevToolsPanel />}
 
             {view === "visualizer" && (
               <VisualizerPanel
