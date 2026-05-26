@@ -10,6 +10,16 @@ export function formatNumber(value: number, digits = 2) {
   return value.toFixed(digits);
 }
 
+/**
+ * Resolve a public asset path against Vite's base URL so it works both at the domain
+ * root (dev) and under a GitHub Pages project subpath (e.g. /NIRSer/). BASE_URL always
+ * ends in "/", so we strip any leading slash from the path before joining.
+ */
+export function assetUrl(path: string) {
+  const base = import.meta.env.BASE_URL || "/";
+  return `${base}${path.replace(/^\/+/, "")}`;
+}
+
 export function downloadText(filename: string, contents: string) {
   const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);

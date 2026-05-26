@@ -5,15 +5,23 @@ import { Input, Label, Select } from "../../components/ui/field";
 import { formatNumber } from "../../lib/utils";
 import type { AppSettings } from "../../types/nirs";
 
+// The legacy app's "Set frame rate" was a fixed dropdown (default 9 packets/s); mirror that
+// as preset options while still honoring any custom rate loaded from a settings file.
+const NIRS_FRAME_RATE_PRESETS = [1, 2, 3, 5, 9, 10, 15, 20, 25, 30];
+
 type DeviceCardProps = {
   settings: AppSettings;
   setSettings: (settings: AppSettings) => void;
   sessionBaseName: string;
   setSessionBaseName: (value: string) => void;
   biasLabel: string;
+  biasTimeDraft: string;
+  setBiasTimeDraft: (value: string) => void;
+  applyBiasTime: () => void;
   maxTimeDraft: string;
   setMaxTimeDraft: (value: string) => void;
   applyMaxTime: () => void;
+  maxTimeError: string | null;
   loadCellStatus: string;
   loadCellVisible: boolean;
   setLoadCellVisible: (value: boolean) => void;
@@ -49,9 +57,13 @@ export function DeviceCard({
   sessionBaseName,
   setSessionBaseName,
   biasLabel,
+  biasTimeDraft,
+  setBiasTimeDraft,
+  applyBiasTime,
   maxTimeDraft,
   setMaxTimeDraft,
   applyMaxTime,
+  maxTimeError,
   loadCellStatus,
   loadCellVisible,
   setLoadCellVisible,
@@ -85,6 +97,10 @@ export function DeviceCard({
     if (!Number.isFinite(numeric) || numeric <= 0) return;
     setSettings({ ...settings, [key]: numeric });
   }
+
+  const frameRateOptions = NIRS_FRAME_RATE_PRESETS.includes(settings.nirsFrameRate)
+    ? NIRS_FRAME_RATE_PRESETS
+    : [settings.nirsFrameRate, ...NIRS_FRAME_RATE_PRESETS].sort((left, right) => left - right);
 
   return (
     <Card>
@@ -125,13 +141,17 @@ export function DeviceCard({
         <div id="frame-rate-settings" className="grid grid-cols-2 gap-2 scroll-mt-24">
           <div>
             <Label>NIRS display packets/s</Label>
-            <Input
-              type="number"
-              min="1"
-              step="1"
-              value={settings.nirsFrameRate}
+            <Select
+              aria-label="NIRS display packets/s"
+              value={String(settings.nirsFrameRate)}
               onChange={(event) => updatePositiveSetting("nirsFrameRate", event.target.value)}
-            />
+            >
+              {frameRateOptions.map((rate) => (
+                <option key={rate} value={rate}>
+                  {rate}
+                </option>
+              ))}
+            </Select>
           </div>
           <div>
             <Label>Load display packets/s</Label>
@@ -145,7 +165,7 @@ export function DeviceCard({
           </div>
         </div>
         <div className="text-xs text-slate-500">
-          Frame rate is packets/second and only affects display.
+          Frame rate is packets/second and only affects display. Default 9.
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -201,18 +221,37 @@ export function DeviceCard({
             </Button>
           </div>
         </div>
-        <div className="rounded-md bg-slate-50 p-2 text-xs text-slate-600">Bias: {biasLabel}</div>
+        <div className="space-y-2 rounded-md bg-slate-50 p-2 text-xs text-slate-600">
+          <div>Bias: {biasLabel}</div>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <Input
+              type="number"
+              step="0.1"
+              placeholder="Bias at time (s)"
+              aria-label="Bias at time"
+              value={biasTimeDraft}
+              onChange={(event) => setBiasTimeDraft(event.target.value)}
+            />
+            <Button variant="secondary" aria-label="Set bias at time" onClick={applyBiasTime}>
+              Set Bias
+            </Button>
+          </div>
+        </div>
         <div>
           <Label>Max time</Label>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <Input
               type="number"
               step="0.1"
+              aria-label="Max time"
               value={maxTimeDraft}
               onChange={(event) => setMaxTimeDraft(event.target.value)}
             />
-            <Button onClick={applyMaxTime}>Set</Button>
+            <Button aria-label="Set max time" onClick={applyMaxTime}>
+              Set
+            </Button>
           </div>
+          {maxTimeError && <div className="mt-1 text-xs text-red-600">{maxTimeError}</div>}
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
           <div>Port: {serialPortLabel}</div>

@@ -1,7 +1,9 @@
-import { Calculator, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Calculator, Check, ClipboardCopy, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { StatBlock } from "../../components/ui/StatBlock";
+import { formatAnalysisStatsTsv } from "../../lib/analysis";
 import { formatNumber } from "../../lib/utils";
 import type { AnalysisStats, CalculatedValuesSnapshot } from "../../types/nirs";
 import { StatsTable } from "./StatsTable";
@@ -23,14 +25,35 @@ export function ActiveSectionStatsCard({
   onClearSnapshots,
   onExportSnapshots,
 }: ActiveSectionStatsCardProps) {
+  const [copied, setCopied] = useState(false);
+
+  // Copy the stats table as TSV (replaces the legacy app's copy/paste of its values list).
+  async function copyValues() {
+    if (!navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(formatAnalysisStatsTsv(stats));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard can be unavailable (e.g. insecure context); ignore.
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle>Active Section Stats</CardTitle>
-          <Button size="sm" onClick={onCalculateValues}>
-            <Calculator size={14} /> Calculate Values
-          </Button>
+          <div className="flex gap-2">
+            {showTable && (
+              <Button size="sm" variant="secondary" onClick={copyValues} aria-label="Copy values">
+                {copied ? <Check size={14} /> : <ClipboardCopy size={14} />} {copied ? "Copied" : "Copy values"}
+              </Button>
+            )}
+            <Button size="sm" onClick={onCalculateValues}>
+              <Calculator size={14} /> Calculate Values
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

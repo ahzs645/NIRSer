@@ -48,13 +48,15 @@ import { applyFilterPasses, buildSamples } from "./lib/samples";
 import { bundleFiles, createSessionBundle, parseSessionBundle, serializeSessionBundle } from "./lib/sessionBundle";
 import { legacySessionFilenames, sanitizeSessionBaseName } from "./lib/sessionFiles";
 import { createDemoLoadCell, createDemoPackets } from "./lib/simulator";
-import { downloadText, formatNumber, parseCsvNumbers } from "./lib/utils";
+import { assetUrl, downloadText, formatNumber, parseCsvNumbers } from "./lib/utils";
 import { builtInVisualizerProfile, parseVisualizerProfile, visualizerProfileToChannels } from "./lib/visualizerProfile";
 import type { CalculatedValuesSnapshot, ChannelStats, NirsPacket, Point, ProcessedNirsSample, Section, SerialEvent } from "./types/nirs";
 
 type ChartDomain = [number, number] | ["auto", "auto"];
 const SETTINGS_STORAGE_KEY = "nirser-web-settings";
 const LEGACY_SIDECAR_PATTERN = /(LoadCellCommunicator|Marks|Sections|Settings|CalculatedValues|SerialLog)\./i;
+// The legacy JavaFX app rejects a display window of 180s or more ("Maximum time has to be less than 180.").
+const MAX_TIME_LIMIT_SECONDS = 180;
 
 function parseDomain(lowerValue: string, upperValue: string): ChartDomain {
   const lower = Number(lowerValue);
@@ -82,8 +84,10 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [shownSamples, setShownSamples] = useState(240);
   const [maxTimeDraft, setMaxTimeDraft] = useState("30.0");
+  const [maxTimeError, setMaxTimeError] = useState<string | null>(null);
   const [sessionBaseName, setSessionBaseName] = useState("nirs-data");
   const [biasIndex, setBiasIndex] = useState<number | null>(null);
+  const [biasTimeDraft, setBiasTimeDraft] = useState("");
   const [seriesVisible, setSeriesVisible] = useState(() => ({ o2hb: true, hhb: true, thb: true, hbdiff: true, toi: settings.useToi }));
   const [panesVisible, setPanesVisible] = useState({ channel1: true, channel2: true, loadCell: true });
   const [autoScaleY, setAutoScaleY] = useState(true);
@@ -776,9 +780,33 @@ export default function App() {
 
   function applyMaxTime() {
     const maxTime = Number(maxTimeDraft);
-    if (!Number.isFinite(maxTime) || maxTime <= 0) return;
+    if (!Number.isFinite(maxTime) || maxTime <= 0) {
+      setMaxTimeError("Max time must be a number greater than 0.");
+      return;
+    }
+    if (maxTime >= MAX_TIME_LIMIT_SECONDS) {
+      setMaxTimeError(`Max time has to be less than ${MAX_TIME_LIMIT_SECONDS}.`);
+      return;
+    }
+    setMaxTimeError(null);
     const sampleCount = plottedSamples.findIndex((sample) => sample.time > maxTime);
     setShownSamples(sampleCount === -1 ? plottedSamples.length : Math.max(1, sampleCount));
+  }
+
+  // Bias at an arbitrary typed time (legacy Analysis "Set Bias"): snap to the nearest sample by time.
+  function applyBiasTime() {
+    const time = Number(biasTimeDraft);
+    if (!Number.isFinite(time) || time < 0 || samples.length === 0) return;
+    let nearestIndex = 0;
+    let smallestDelta = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < samples.length; index += 1) {
+      const delta = Math.abs(samples[index].time - time);
+      if (delta < smallestDelta) {
+        smallestDelta = delta;
+        nearestIndex = index;
+      }
+    }
+    setBiasIndex(nearestIndex);
   }
 
   function addSection() {
@@ -941,8 +969,8 @@ export default function App() {
   const visualToi = Math.round((stats.channel1.toi.average + stats.channel2.toi.average) / 2);
   const visualPercent = Math.min(90, Math.max(10, Math.round(visualToi / 10) * 10));
   const visualAsset = !settings.useToi || visualPercent === 50
-    ? "/nirs-assets/images/50.png"
-    : `/nirs-assets/images/${visualPercent}-${100 - visualPercent}.png`;
+    ? assetUrl("nirs-assets/images/50.png")
+    : assetUrl(`nirs-assets/images/${visualPercent}-${100 - visualPercent}.png`);
   const thbBase = samples[60]?.channel1.thb || samples[0]?.channel1.thb || 1;
   const currentThb = visibleSamples.at(-1)?.channel1.thb ?? thbBase;
   const thbIncrease = ((currentThb - thbBase) / Math.max(Math.abs(thbBase), 0.001)) * 100;
@@ -1077,8 +1105,15 @@ export default function App() {
               setSessionBaseName={setSessionBaseName}
               biasLabel={biasIndex === null ? "not set" : `sample ${biasIndex + 1} at ${formatNumber(samples[biasIndex]?.time ?? 0)}s`}
               maxTimeDraft={maxTimeDraft}
-              setMaxTimeDraft={setMaxTimeDraft}
+              setMaxTimeDraft={(value) => {
+                setMaxTimeDraft(value);
+                setMaxTimeError(null);
+              }}
               applyMaxTime={applyMaxTime}
+              maxTimeError={maxTimeError}
+              biasTimeDraft={biasTimeDraft}
+              setBiasTimeDraft={setBiasTimeDraft}
+              applyBiasTime={applyBiasTime}
               loadCellStatus={loadCellStatus}
               loadCellVisible={panesVisible.loadCell}
               setLoadCellVisible={(loadCellVisible) => setPanesVisible({ ...panesVisible, loadCell: loadCellVisible })}

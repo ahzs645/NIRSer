@@ -1,6 +1,7 @@
 import { FileUp, Play, Square } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
+import { assetUrl } from "../../lib/utils";
 import { veinCoordinates } from "./veins";
 
 type VisualizerPanelProps = {
@@ -95,7 +96,7 @@ export function VisualizerPanel({
           )}
           <img
             className="mt-4 aspect-[4/3] w-full rounded-md border border-slate-200 object-cover"
-            src={contractionType === "forearm" ? "/nirs-assets/images/muscletop.jpg" : "/nirs-assets/images/musclebottom.jpg"}
+            src={assetUrl(contractionType === "forearm" ? "nirs-assets/images/muscletop.jpg" : "nirs-assets/images/musclebottom.jpg")}
             alt={`${contractionType} muscle model`}
           />
           <div className="mt-3 rounded-md bg-slate-50 p-2 text-xs text-slate-600">
@@ -113,10 +114,10 @@ export function VisualizerPanel({
         <div className="relative h-[360px] bg-slate-900">
           <svg className="h-full w-full" viewBox="0 0 800 350" role="img" aria-label="NIRS visualizer vein canvas">
             {mode === "full" && (
-              <image href="/nirs-assets/images/tissue.png" x="0" y="0" width="800" height="350" preserveAspectRatio="xMidYMid slice" />
+              <image href={assetUrl("nirs-assets/images/tissue.png")} x="0" y="0" width="800" height="350" preserveAspectRatio="xMidYMid slice" />
             )}
-            <image href="/nirs-assets/images/device.png" x="0" y="0" width="800" height="350" preserveAspectRatio="xMidYMid meet" />
-            <image href="/nirs-assets/images/light.gif" x="0" y="68" width="800" height="200" opacity="0.8" preserveAspectRatio="xMidYMid meet" />
+            <image href={assetUrl("nirs-assets/images/device.png")} x="0" y="0" width="800" height="350" preserveAspectRatio="xMidYMid meet" />
+            <image href={assetUrl("nirs-assets/images/light.gif")} x="0" y="68" width="800" height="200" opacity="0.8" preserveAspectRatio="xMidYMid meet" />
             {veinCoordinates.slice(0, activeVeins).map((vein, index) => (
               <image
                 key={`${vein.x}-${vein.y}-${index}`}

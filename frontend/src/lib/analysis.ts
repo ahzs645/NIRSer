@@ -1,4 +1,4 @@
-import type { AnalysisStats, DataInfo, NirsPoint, Point, ProcessedNirsSample } from "../types/nirs";
+import type { AnalysisStats, ChannelStats, DataInfo, NirsPoint, Point, ProcessedNirsSample } from "../types/nirs";
 
 const emptyPoint: Point = { time: 0, value: 0 };
 
@@ -63,6 +63,33 @@ export function calculateStats(
     channel2: channelStats("channel2"),
     loadCell: summarize(loadWindow),
   };
+}
+
+/**
+ * Render the active-section stats as a tab-separated table (one metric per row, both
+ * channels side by side, load cell last) for copy-to-clipboard. Mirrors the on-screen
+ * StatsTable and replaces the legacy app's copy/paste of its values ListView.
+ */
+export function formatAnalysisStatsTsv(stats: AnalysisStats): string {
+  const fmt = (value: number) => (Number.isFinite(value) ? value.toFixed(2) : "0.00");
+  const cells = (info: DataInfo) => [info.min.value, info.max.value, info.average, info.slope, info.r].map(fmt);
+  const header = [
+    "Signal",
+    "Ch1 Min", "Ch1 Max", "Ch1 Avg", "Ch1 Slope", "Ch1 r",
+    "Ch2 Min", "Ch2 Max", "Ch2 Avg", "Ch2 Slope", "Ch2 r",
+  ].join("\t");
+  const metrics: Array<[keyof ChannelStats, string]> = [
+    ["o2hb", "O2Hb"],
+    ["hhb", "HHb"],
+    ["thb", "THb"],
+    ["hbdiff", "HbDiff"],
+    ["toi", "TOI"],
+  ];
+  const rows = metrics.map(([key, label]) =>
+    [label, ...cells(stats.channel1[key]), ...cells(stats.channel2[key])].join("\t"),
+  );
+  const loadRow = ["Load Cell", ...cells(stats.loadCell), "", "", "", "", ""].join("\t");
+  return [header, ...rows, loadRow].join("\n");
 }
 
 export function movingAverage(points: NirsPoint[], windowSize: number) {

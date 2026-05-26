@@ -108,6 +108,29 @@ describe("Bias & chart controls", () => {
     fireEvent.click(o2);
     expect(o2).not.toBeChecked();
   });
+
+  it("sets the bias at a typed time", () => {
+    render(<App />);
+    expect(screen.getByText(/Bias: not set/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Bias at time" }), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set bias at time" }));
+    expect(screen.getByText(/Bias: sample \d+ at [\d.]+s/i)).toBeInTheDocument();
+  });
+});
+
+describe("Max time limit", () => {
+  it("rejects a max time of 180 or more and clears the error once it is valid", () => {
+    render(<App />);
+    const maxTime = screen.getByRole("spinbutton", { name: "Max time" });
+
+    fireEvent.change(maxTime, { target: { value: "200" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set max time" }));
+    expect(screen.getByText(/has to be less than 180/i)).toBeInTheDocument();
+
+    fireEvent.change(maxTime, { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set max time" }));
+    expect(screen.queryByText(/has to be less than 180/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("Acquisition streaming", () => {
@@ -133,6 +156,29 @@ describe("Analysis chart overlays", () => {
     fireEvent.click(nav(/^Analysis$/));
     // Analysis view: min/max markers appear for the visible series.
     expect(screen.getByRole("img", { name: "Channel 1" }).querySelectorAll("circle").length).toBeGreaterThan(0);
+  });
+
+  it("copies the section stats to the clipboard from the analysis view", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<App />);
+    fireEvent.click(nav(/^Analysis$/));
+    fireEvent.click(screen.getByRole("button", { name: "Copy values" }));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain("O2Hb");
+    // The async post-write "Copied" indicator flushes within act via findByText.
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
+  });
+});
+
+describe("Frame rate dropdown", () => {
+  it("offers preset NIRS frame rates and defaults to 9", () => {
+    render(<App />);
+    const select = screen.getByRole("combobox", { name: "NIRS display packets/s" });
+    expect(select).toHaveValue("9");
+    expect(within(select).getByRole("option", { name: "15" })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "15" } });
+    expect(select).toHaveValue("15");
   });
 });
 
