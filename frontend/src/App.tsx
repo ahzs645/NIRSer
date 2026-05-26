@@ -211,6 +211,7 @@ export default function App() {
       : displayedSamples.map((sample) => sample.channel2);
   const visibleLoadCell = sampleByDisplayRate(loadCell, settings.loadCellFrameRate).slice(0, shownSamples);
   const hasData = packets.length > 0 || (importedSamples?.length ?? 0) > 0 || loadCell.length > 0;
+  const visualizerHasProfileData = view === "visualizer" && visualizerMode === "full" && (visualizerProfile?.length ?? 0) > 0;
   const channel1XDomain = parseDomain(bounds.channel1LowerX, bounds.channel1UpperX);
   const channel2XDomain = parseDomain(bounds.channel2LowerX, bounds.channel2UpperX);
   const channel1Domain: [number, number] | ["auto", "auto"] = autoScaleY
@@ -981,6 +982,14 @@ export default function App() {
   const computedActiveVeins = Math.max(1, Math.min(20, 10 + Math.floor(thbIncrease / 5)));
   const profileIndex = Math.min(Math.max(0, visualizerFrame), (visualizerProfile?.length ?? 1) - 1);
   const activeVeins = visualizerProfile?.[profileIndex] ?? computedActiveVeins;
+  // The source visualizer windows show no acquisition counts, so give the shared header a
+  // visualizer-appropriate subtitle in every mode instead of falling back to "0 NIRS samples…".
+  const visualizerSummary =
+    view !== "visualizer"
+      ? undefined
+      : visualizerHasProfileData
+        ? `${visualizerProfile?.length ?? 0} visualizer frames (${visualizerProfileName})`
+        : `${visualizerMode === "realtime" ? "Real-time" : "Full"} visualization · ${activeVeins} / 20 veins active`;
 
   function startVisualizerDemo() {
     setVisualizerRunning(true);
@@ -1011,6 +1020,7 @@ export default function App() {
       nirsSampleCount={samples.length}
       loadCellPointCount={loadCell.length}
       markCount={marks.length}
+      dataSummary={visualizerSummary}
       running={running}
       biasActive={biasIndex !== null}
       deviceKind={settings.deviceKind}
@@ -1069,7 +1079,7 @@ export default function App() {
                 loadCell={visibleLoadCell}
                 marks={marks}
                 seriesVisible={seriesVisible}
-                panesVisible={panesVisible}
+                panesVisible={view === "visualizer" && visualizerMode === "full" ? { ...panesVisible, loadCell: false } : panesVisible}
                 channel1XDomain={channel1XDomain}
                 channel2XDomain={channel2XDomain}
                 channel1Domain={channel1Domain}
@@ -1081,7 +1091,7 @@ export default function App() {
                 channel2Overlays={channel2Overlays}
                 loadCellOverlay={loadCellOverlay}
                 overlayWindow={analysisOverlayWindow}
-                hasData={hasData}
+                hasData={hasData || visualizerHasProfileData}
                 onLoadDemo={resetDemo}
               />
             )}

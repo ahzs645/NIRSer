@@ -63,6 +63,16 @@ describe("App shell & navigation", () => {
     fireEvent.click(nav(/^Visualizer$/));
     expect(screen.getByText(/Active veins:/i)).toBeInTheDocument();
   });
+
+  it("opens the real-time visualizer without the acquisition sample counts", () => {
+    render(<App />);
+    // "Real time visualization" lives in the File menu; it opens the visualizer in realtime mode.
+    fireEvent.click(screen.getByRole("button", { name: /Real time visualization/i }));
+    expect(screen.getByRole("heading", { level: 2, name: "visualizer" })).toBeInTheDocument();
+    // The source visualizer never shows "N NIRS samples, N load-cell points, N marks".
+    expect(screen.getByText(/Real-time visualization/i)).toBeInTheDocument();
+    expect(screen.queryByText(/NIRS samples,/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("Marks", () => {

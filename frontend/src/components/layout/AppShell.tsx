@@ -22,6 +22,7 @@ type AppShellProps = {
   nirsSampleCount: number;
   loadCellPointCount: number;
   markCount: number;
+  dataSummary?: string;
   running: boolean;
   biasActive: boolean;
   deviceKind: DeviceKind;
@@ -63,6 +64,7 @@ export function AppShell({
   nirsSampleCount,
   loadCellPointCount,
   markCount,
+  dataSummary,
   running,
   biasActive,
   deviceKind,
@@ -127,7 +129,7 @@ export function AppShell({
             <div>
               <h2 className="text-lg font-semibold capitalize">{view}</h2>
               <p className="text-sm text-slate-500">
-                {nirsSampleCount} NIRS samples, {loadCellPointCount} load-cell points, {markCount} marks
+                {dataSummary ?? `${nirsSampleCount} NIRS samples, ${loadCellPointCount} load-cell points, ${markCount} marks`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

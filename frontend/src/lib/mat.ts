@@ -34,6 +34,8 @@ type NumericMatrix = {
   values: number[];
 };
 
+export type MatNumericMatrix = NumericMatrix;
+
 function aligned(offset: number) {
   return offset + ((8 - (offset % 8)) % 8);
 }
@@ -46,6 +48,7 @@ function readTag(view: DataView, offset: number) {
       type: first & 0xffff,
       byteLength: smallBytes,
       dataOffset: offset + 4,
+      rawNextOffset: offset + 8,
       nextOffset: offset + 8,
     };
   }
@@ -54,6 +57,7 @@ function readTag(view: DataView, offset: number) {
     type: first,
     byteLength,
     dataOffset: offset + 8,
+    rawNextOffset: offset + 8 + byteLength,
     nextOffset: aligned(offset + 8 + byteLength),
   };
 }
@@ -112,9 +116,9 @@ function flattenColumn(matrix: NumericMatrix) {
   return columnMajorToRows(matrix).flat();
 }
 
-export function parseMatFile(buffer: ArrayBuffer): BrunoMatData {
+export function parseNumericMatFile(buffer: ArrayBuffer): Map<string, MatNumericMatrix> {
   const bytes = new Uint8Array(buffer);
-  const matrices = new Map<string, NumericMatrix>();
+  const matrices = new Map<string, MatNumericMatrix>();
   let offset = 128;
   const view = new DataView(buffer);
 
@@ -132,8 +136,14 @@ export function parseMatFile(buffer: ArrayBuffer): BrunoMatData {
       const matrix = parseMatrix(payload);
       if (matrix) matrices.set(matrix.name, matrix);
     }
-    offset = tag.nextOffset;
+    offset = tag.type === MI_COMPRESSED ? tag.rawNextOffset : tag.nextOffset;
   }
+
+  return matrices;
+}
+
+export function parseMatFile(buffer: ArrayBuffer): BrunoMatData {
+  const matrices = parseNumericMatFile(buffer);
 
   const wavelengthsMatrix = matrices.get("wavelengths");
   const extinctionMatrix = matrices.get("extinction");

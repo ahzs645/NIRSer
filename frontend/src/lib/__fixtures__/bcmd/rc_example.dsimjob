@@ -1,0 +1,14 @@
+# basic sensitivity job for testing and demonstration purposes
+model: rc
+var: Vc, uniform, 0, 0.001
+param: C, uniform, 1e-6, 100
+param: R, uniform, 1, 10000
+job_mode: fast
+distance: euclidean
+input: V
+alias: t, t
+divisions: 10
+interference: 4
+npath: 1000
+jump: 4
+nbatch: 8
