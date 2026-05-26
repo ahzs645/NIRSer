@@ -20,6 +20,22 @@ export function assetUrl(path: string) {
   return `${base}${path.replace(/^\/+/, "")}`;
 }
 
+/**
+ * Generate a unique id. Prefers `crypto.randomUUID()` but falls back to a manual
+ * UUIDv4 when it is unavailable — notably in non-secure contexts (plain HTTP), where
+ * `crypto.randomUUID` is undefined and would otherwise throw and blank the whole app.
+ */
+export function randomId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = (Math.random() * 16) | 0;
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
 export function downloadText(filename: string, contents: string) {
   const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);

@@ -48,7 +48,7 @@ import { applyFilterPasses, buildSamples } from "./lib/samples";
 import { bundleFiles, createSessionBundle, parseSessionBundle, serializeSessionBundle } from "./lib/sessionBundle";
 import { legacySessionFilenames, sanitizeSessionBaseName } from "./lib/sessionFiles";
 import { createDemoLoadCell, createDemoPackets } from "./lib/simulator";
-import { assetUrl, downloadText, formatNumber, parseCsvNumbers } from "./lib/utils";
+import { assetUrl, downloadText, formatNumber, parseCsvNumbers, randomId } from "./lib/utils";
 import { builtInVisualizerProfile, parseVisualizerProfile, visualizerProfileToChannels } from "./lib/visualizerProfile";
 import type { CalculatedValuesSnapshot, ChannelStats, NirsPacket, Point, ProcessedNirsSample, Section, SerialEvent } from "./types/nirs";
 
@@ -813,7 +813,7 @@ export default function App() {
     const initialTime = sectionDraftInitialTime;
     const endTime = sectionDraftEndTime;
     if (!sectionDraftValid) return;
-    const section = { id: crypto.randomUUID(), name: sectionDraft.name.trim(), initialTime, endTime };
+    const section = { id: randomId(), name: sectionDraft.name.trim(), initialTime, endTime };
     setSections((items) => [...items, section]);
     setActiveSectionId(section.id);
     setSectionDraft({ name: "", initialTime: "0", endTime: "5" });
@@ -847,7 +847,7 @@ export default function App() {
   function calculateValuesSnapshot() {
     setCalculatedValues((items) => [
       {
-        id: crypto.randomUUID(),
+        id: randomId(),
         sectionName: activeSection?.name ?? "section",
         initialTime: activeSection?.initialTime ?? 0,
         endTime: activeSection?.endTime ?? Number.POSITIVE_INFINITY,

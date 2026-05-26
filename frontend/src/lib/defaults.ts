@@ -1,4 +1,5 @@
 import type { AppSettings, Section } from "../types/nirs";
+import { randomId } from "./utils";
 
 export const defaultSettings: AppSettings = {
   deviceKind: "pathonix",
@@ -13,8 +14,8 @@ export const defaultSettings: AppSettings = {
 
 export function defaultSections(): Section[] {
   return [
-    { id: crypto.randomUUID(), name: "baseline", initialTime: 0, endTime: 8 },
-    { id: crypto.randomUUID(), name: "contraction", initialTime: 8, endTime: 20 },
+    { id: randomId(), name: "baseline", initialTime: 0, endTime: 8 },
+    { id: randomId(), name: "contraction", initialTime: 8, endTime: 20 },
   ];
 }
 

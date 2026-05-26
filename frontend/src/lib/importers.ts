@@ -11,7 +11,7 @@ import type {
 import { calculateToi, packetsFromNumbers, processPacket } from "./formulas";
 import { parseLoadCellLine } from "./serial";
 import type { AppSettings } from "../types/nirs";
-import { parseCsvLine, parseCsvNumbers } from "./utils";
+import { parseCsvLine, parseCsvNumbers, randomId } from "./utils";
 
 export function importRawCsv(text: string, settings: AppSettings) {
   return packetsFromNumbers(parseCsvNumbers(text)).map((packet, index) =>
@@ -111,7 +111,7 @@ export function importSectionsText(text: string): Section[] {
       const maybeEndTime = Number(parts.at(-1));
       const hasTimes = parts.length >= 3 && Number.isFinite(maybeInitialTime) && Number.isFinite(maybeEndTime);
       return {
-        id: crypto.randomUUID(),
+        id: randomId(),
         name: hasTimes ? parts.slice(0, -2).join(" ") : parts.join(" "),
         initialTime: hasTimes ? maybeInitialTime : 0,
         endTime: hasTimes ? maybeEndTime : 0,
@@ -159,7 +159,7 @@ export function importCalculatedValuesCsv(text: string): CalculatedValuesSnapsho
     const snapshot =
       snapshots.get(key) ??
       {
-        id: crypto.randomUUID(),
+        id: randomId(),
         calculatedAt,
         sectionName,
         initialTime: Number(initialTime) || 0,
