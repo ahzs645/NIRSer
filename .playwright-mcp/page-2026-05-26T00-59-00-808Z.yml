@@ -1,0 +1,346 @@
+- main [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e9]:
+        - heading "NIRSer Web" [level=1] [ref=e10]
+        - paragraph [ref=e11]: Client-side NIRS workstation
+    - navigation [ref=e12]:
+      - button "Acquisition" [ref=e13]:
+        - img [ref=e14]
+        - text: Acquisition
+      - button "Analysis" [ref=e17]:
+        - img [ref=e18]
+        - text: Analysis
+      - button "Visualizer" [ref=e20]:
+        - img [ref=e21]
+        - text: Visualizer
+  - generic [ref=e23]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - heading "acquisition" [level=2] [ref=e27]
+        - paragraph [ref=e28]: 900 NIRS samples, 900 load-cell points, 3 marks
+      - generic [ref=e29]:
+        - group [ref=e30]:
+          - generic "File" [ref=e31]
+        - group [ref=e32]:
+          - generic "Options" [ref=e33]
+        - button "Acquisition" [ref=e34]:
+          - img [ref=e35]
+          - text: Acquisition
+        - button "Analysis" [ref=e38]:
+          - img [ref=e39]
+          - text: Analysis
+        - button "Visualizer" [ref=e41]:
+          - img [ref=e42]
+          - text: Visualizer
+        - generic "Device type" [ref=e44]:
+          - button "Pathonix" [ref=e45]
+          - button "UNBC Device" [ref=e46]
+        - button "Start Demo" [ref=e47]:
+          - img [ref=e48]
+          - text: Start Demo
+        - button "Pause" [disabled] [ref=e50]:
+          - img [ref=e51]
+          - text: Pause
+        - button "Bias" [ref=e54]:
+          - img [ref=e55]
+          - text: Bias
+        - button "Mark" [ref=e58]
+        - button "Stop" [ref=e59]:
+          - img [ref=e60]
+          - text: Stop
+        - button "Demo" [ref=e62]:
+          - img [ref=e63]
+          - text: Demo
+        - button "Add Device" [ref=e66]:
+          - img [ref=e67]
+          - text: Add Device
+        - button "Save Data" [ref=e69]:
+          - img [ref=e70]
+          - text: Save Data
+    - generic [ref=e74]:
+      - generic [ref=e76]:
+        - generic [ref=e77]: Move over a chart to inspect X/Y coordinates
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - heading "Channel 1" [level=3] [ref=e82]
+            - generic [ref=e83]: 100 samples
+          - img "Channel 1" [ref=e84]:
+            - generic [ref=e87]: "29.1"
+            - generic [ref=e89]: "18.2"
+            - generic [ref=e91]: "7.3"
+            - generic [ref=e93]: "-3.6"
+            - generic [ref=e95]: "-14.6"
+            - generic [ref=e96]: Data (mM*mm)
+            - generic [ref=e101]: 0.0s
+            - generic [ref=e102]: 30.0s
+            - generic [ref=e103]: Time (s)
+            - generic [ref=e104]:
+              - generic [ref=e106]: O2Hb
+              - generic [ref=e108]: HHb
+              - generic [ref=e110]: THb
+              - generic [ref=e112]: HbDif/TOI
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - heading "Channel 2" [level=3] [ref=e118]
+            - generic [ref=e119]: 100 samples
+          - img "Channel 2" [ref=e120]:
+            - generic [ref=e123]: "28.6"
+            - generic [ref=e125]: "17.6"
+            - generic [ref=e127]: "6.6"
+            - generic [ref=e129]: "-4.5"
+            - generic [ref=e131]: "-15.5"
+            - generic [ref=e132]: Data (mM*mm)
+            - generic [ref=e137]: 0.0s
+            - generic [ref=e138]: 30.0s
+            - generic [ref=e139]: Time (s)
+            - generic [ref=e140]:
+              - generic [ref=e142]: O2Hb
+              - generic [ref=e144]: HHb
+              - generic [ref=e146]: THb
+              - generic [ref=e148]: HbDif/TOI
+        - generic [ref=e152]:
+          - generic [ref=e153]:
+            - heading "Load Cell" [level=3] [ref=e154]
+            - generic [ref=e155]: 129 points
+          - img "Load Cell" [ref=e156]:
+            - generic [ref=e159]: "2.0"
+            - generic [ref=e161]: "0.0"
+            - generic [ref=e163]: "-2.0"
+            - generic [ref=e164]: Data (lbs)
+            - generic [ref=e166]: 0.0s
+            - generic [ref=e167]: 35.8s
+            - generic [ref=e168]: Time (s)
+      - generic [ref=e170]:
+        - generic [ref=e171]:
+          - heading "Device" [level=2] [ref=e173]
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - text: Device type
+              - combobox [ref=e176]:
+                - option "Pathonix"
+                - option "UNBC Device" [selected]
+            - generic [ref=e177]:
+              - generic [ref=e178]:
+                - text: NIRS sec/packet
+                - spinbutton [ref=e179]: "0.0277777777777778"
+              - generic [ref=e180]:
+                - text: Load sec/point
+                - spinbutton [ref=e181]: "0.04"
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - text: NIRS display packets/s
+                - spinbutton [ref=e184]: "4"
+              - generic [ref=e185]:
+                - text: Load display packets/s
+                - spinbutton [ref=e186]: "4"
+            - generic [ref=e187]: Frame rate is packets/second and only affects display.
+            - generic [ref=e188]:
+              - checkbox "Use TOI instead of HbDiff" [ref=e189]
+              - text: Use TOI instead of HbDiff
+            - generic [ref=e190]:
+              - button "Export Settings" [ref=e191]
+              - generic [ref=e192]:
+                - img [ref=e193]
+                - text: Import Settings
+                - button "Import Settings" [ref=e197]
+            - generic [ref=e198]:
+              - checkbox "Real time save mode" [ref=e199]
+              - text: Real time save mode
+            - generic [ref=e200]:
+              - text: Session file name
+              - textbox [ref=e201]: nirs-data
+              - generic [ref=e202]: Save Data writes matching NIRS, load-cell, marks, and sections sidecars.
+              - button "Export Session Bundle" [ref=e203]
+            - generic [ref=e204]:
+              - text: "Real-time save: Off"
+              - generic [ref=e205]:
+                - button "Restore Snapshot" [ref=e206]
+                - button "Clear Snapshot" [ref=e207]
+                - button "Download Snapshot" [ref=e208]
+            - generic [ref=e209]: "Bias: not set"
+            - generic [ref=e210]:
+              - text: Max time
+              - generic [ref=e211]:
+                - spinbutton [ref=e212]: "30.0"
+                - button "Set" [ref=e213]
+            - generic [ref=e214]:
+              - generic [ref=e215]: "Port: None"
+              - generic [ref=e216]: "Status: Disconnected"
+              - generic [ref=e217]: "Serial log: 0 events"
+            - generic [ref=e218]:
+              - button "Select Port" [ref=e219]
+              - button "Disconnect" [disabled] [ref=e220]
+              - button "Export Serial Log" [disabled] [ref=e221]
+            - generic [ref=e222]:
+              - generic [ref=e223]: Load Cell
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - text: Serial Number
+                  - textbox [ref=e226]: "680844"
+                - generic [ref=e227]:
+                  - text: Points/Second
+                  - combobox [ref=e228]:
+                    - option "10"
+                    - option "25" [selected]
+                    - option "50"
+                    - option "100"
+                - generic [ref=e229]:
+                  - button "Connect" [ref=e230]
+                  - button "Disconnect" [ref=e231]
+                  - button "Hide" [ref=e232]
+                - generic [ref=e233]: "Load-cell status: Disconnected"
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - img [ref=e236]
+                - text: Data Bundle
+                - button "Data Bundle" [ref=e240]
+              - generic [ref=e241]:
+                - img [ref=e242]
+                - text: NIRS CSV
+                - button "NIRS CSV" [ref=e246]
+              - generic [ref=e247]:
+                - img [ref=e248]
+                - text: Load CSV
+                - button "Load CSV" [ref=e252]
+            - generic [ref=e253]: "Current NIRS interval: 0.028s"
+        - generic [ref=e254]:
+          - heading "Chart Controls" [level=2] [ref=e256]
+          - generic [ref=e257]:
+            - generic [ref=e258]:
+              - generic [ref=e259]:
+                - checkbox "O2Hb" [checked] [ref=e260]
+                - text: O2Hb
+              - generic [ref=e261]:
+                - checkbox "HHb" [checked] [ref=e262]
+                - text: HHb
+              - generic [ref=e263]:
+                - checkbox "THb" [checked] [ref=e264]
+                - text: THb
+              - generic [ref=e265]:
+                - checkbox "HbDif / TOI" [checked] [ref=e266]
+                - text: HbDif / TOI
+            - generic [ref=e267]:
+              - generic [ref=e268]:
+                - checkbox "Ch 1" [checked] [ref=e269]
+                - text: Ch 1
+              - generic [ref=e270]:
+                - checkbox "Ch 2" [checked] [ref=e271]
+                - text: Ch 2
+              - generic [ref=e272]:
+                - checkbox "Load" [checked] [ref=e273]
+                - text: Load
+            - generic [ref=e274]:
+              - checkbox "Auto-scale Y" [checked] [ref=e275]
+              - text: Auto-scale Y
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - generic [ref=e278]: Channel 1 bounds
+                - button "Set" [ref=e279]
+              - generic [ref=e280]:
+                - textbox "X low" [ref=e281]: "0"
+                - textbox "X high" [ref=e282]: "30"
+                - textbox "Y low" [ref=e283]: "-15"
+                - textbox "Y high" [ref=e284]: "15"
+            - generic [ref=e285]:
+              - generic [ref=e286]:
+                - generic [ref=e287]: Channel 2 bounds
+                - button "Set" [ref=e288]
+              - generic [ref=e289]:
+                - textbox "X low" [ref=e290]: "0"
+                - textbox "X high" [ref=e291]: "30"
+                - textbox "Y low" [ref=e292]: "-15"
+                - textbox "Y high" [ref=e293]: "15"
+        - generic [ref=e294]:
+          - heading "Analysis Filter" [level=2] [ref=e296]
+          - generic [ref=e297]:
+            - generic [ref=e298]:
+              - generic [ref=e299]:
+                - text: Filter type
+                - combobox [ref=e300]:
+                  - option "Butterworth" [selected]
+                  - option "Kalman"
+              - generic [ref=e301]:
+                - text: Filter order
+                - textbox [ref=e302]: "4"
+            - generic [ref=e303]:
+              - text: Cutoff
+              - textbox [ref=e304]: "0.02"
+            - generic [ref=e305]:
+              - button "Apply filter" [ref=e306]
+              - button "Reset" [ref=e307]
+            - generic [ref=e308]: Applied 0 times. Butterworth uses order/cutoff; Kalman uses measurement/process noise.
+        - generic [ref=e309]:
+          - heading "Marks" [level=2] [ref=e311]
+          - generic [ref=e312]:
+            - generic [ref=e313]: "Coordinates: move over a chart"
+            - textbox "Mark time (seconds)" [ref=e314]
+            - button "Add Mark at Current Time" [ref=e315]
+            - generic [ref=e316]:
+              - generic [ref=e317]:
+                - generic [ref=e318]: Mark 1
+                - textbox "Mark 1" [ref=e319]: "5.00"
+                - button "Delete mark 1" [ref=e320]: ×
+              - generic [ref=e321]:
+                - generic [ref=e322]: Mark 2
+                - textbox "Mark 2" [ref=e323]: "12.00"
+                - button "Delete mark 2" [ref=e324]: ×
+              - generic [ref=e325]:
+                - generic [ref=e326]: Mark 3
+                - textbox "Mark 3" [ref=e327]: "20.00"
+                - button "Delete mark 3" [ref=e328]: ×
+            - button "Export Marks" [ref=e329]:
+              - img [ref=e330]
+              - text: Export Marks
+        - generic [ref=e333]:
+          - heading "Sections" [level=2] [ref=e335]
+          - generic [ref=e336]:
+            - combobox [ref=e337]:
+              - option "baseline (0.00-8.00s)" [selected]
+              - option "contraction (8.00-20.00s)"
+            - generic [ref=e338]:
+              - textbox "Name" [ref=e339]
+              - spinbutton [ref=e340]: "0"
+              - spinbutton [ref=e341]: "5"
+            - generic [ref=e342]:
+              - button "Create New Section" [ref=e343]
+              - button "Update" [ref=e344]
+              - button "Delete" [ref=e345]
+              - button "Export sections as CSV" [ref=e346]
+            - generic [ref=e347]:
+              - button "Save" [ref=e348]:
+                - img [ref=e349]
+                - text: Save
+              - button "Export Hb Values" [ref=e353]:
+                - img [ref=e354]
+                - text: Export Hb Values
+        - generic [ref=e357]:
+          - generic [ref=e359]:
+            - heading "Active Section Stats" [level=2] [ref=e360]
+            - button "Calculate Values" [ref=e361]:
+              - img [ref=e362]
+              - text: Calculate Values
+          - generic [ref=e365]:
+            - generic [ref=e366]:
+              - generic [ref=e367]: Ch1 O2 min
+              - generic [ref=e368]: "7.08"
+              - generic [ref=e369]: 7.94s
+            - generic [ref=e370]:
+              - generic [ref=e371]: Ch1 O2 max
+              - generic [ref=e372]: "7.49"
+              - generic [ref=e373]: 0.00s
+            - generic [ref=e374]:
+              - generic [ref=e375]: Ch2 O2 min
+              - generic [ref=e376]: "6.40"
+              - generic [ref=e377]: 7.94s
+            - generic [ref=e378]:
+              - generic [ref=e379]: Ch2 O2 max
+              - generic [ref=e380]: "7.86"
+              - generic [ref=e381]: 0.00s
+            - generic [ref=e382]:
+              - generic [ref=e383]: Avg
+              - generic [ref=e384]: "0.53001"
+            - generic [ref=e385]:
+              - generic [ref=e386]: Slope
+              - generic [ref=e387]: "-0.12"
