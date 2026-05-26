@@ -1,6 +1,7 @@
+import { useEffect, useId, useRef, useState } from "react";
+import * as d3 from "d3";
 import type { NirsPoint, Point } from "../../types/nirs";
 import { formatNumber } from "../../lib/utils";
-import { useChartViewport } from "../../lib/chartViewport";
 
 export type SeriesKey = "o2hb" | "hhb" | "thb" | "hbdiff" | "toi";
 
@@ -27,7 +28,7 @@ type Props = {
   overlayWindow?: [number, number];
 };
 
-const colors = {
+const colors: Record<SeriesKey, string> = {
   o2hb: "#dc2626",
   hhb: "#2563eb",
   thb: "#16a34a",
@@ -35,7 +36,7 @@ const colors = {
   toi: "#7c3aed",
 };
 
-const labels = {
+const labels: Record<SeriesKey, string> = {
   o2hb: "O2Hb",
   hhb: "HHb",
   thb: "THb",
@@ -43,35 +44,232 @@ const labels = {
   toi: "TOI",
 };
 
-export function NirsChart({ title, data, marks, visible, xDomain = ["auto", "auto"], yDomain = ["auto", "auto"], onCoordinate, overlays, overlayWindow }: Props) {
-  const width = 920;
-  const height = 220;
-  const pad = { left: 48, right: 14, top: 12, bottom: 28 };
-  const seriesKeys = (["o2hb", "hhb", "thb", "hbdiff", "toi"] as const).filter((key) => visible?.[key] ?? true);
-  const baseMinX = xDomain[0] === "auto" ? data[0]?.time ?? 0 : xDomain[0];
-  const baseMaxX = xDomain[1] === "auto" ? data.at(-1)?.time ?? 1 : xDomain[1];
-  const baseWindow = data.filter((point) => point.time >= baseMinX && point.time <= baseMaxX);
-  const allY = (baseWindow.length > 0 ? baseWindow : data).flatMap((point) => seriesKeys.map((key) => point[key]));
-  const baseMinY = yDomain[0] === "auto" ? Math.min(...allY, -1) : yDomain[0];
-  const baseMaxY = yDomain[1] === "auto" ? Math.max(...allY, 1) : yDomain[1];
-  const { domain, isZoomed, reset, plotRef, plotHandlers } = useChartViewport(
-    { xMin: baseMinX, xMax: baseMaxX, yMin: baseMinY, yMax: baseMaxY },
-    { onHover: onCoordinate ? (x, y) => onCoordinate({ chart: title, x, y }) : undefined },
-  );
-  const minX = domain.xMin;
-  const maxX = domain.xMax;
-  const minY = domain.yMin;
-  const maxY = domain.yMax;
-  const visibleData = data.filter((point) => point.time >= minX && point.time <= maxX);
-  const spanX = Math.max(0.001, maxX - minX);
-  const spanY = Math.max(0.001, maxY - minY);
-  const x = (time: number) => pad.left + ((time - minX) / spanX) * (width - pad.left - pad.right);
-  const y = (value: number) => height - pad.bottom - ((value - minY) / spanY) * (height - pad.top - pad.bottom);
-  const pathFor = (key: (typeof seriesKeys)[number]) =>
-    visibleData
-      .filter((point) => Number.isFinite(point[key]))
-      .map((point, index) => `${index === 0 ? "M" : "L"}${x(point.time).toFixed(2)},${y(point[key]).toFixed(2)}`)
-      .join(" ");
+const ALL_KEYS: SeriesKey[] = ["o2hb", "hhb", "thb", "hbdiff", "toi"];
+const WIDTH = 920;
+const HEIGHT = 226;
+const PAD = { left: 48, right: 14, top: 12, bottom: 38 };
+
+export function NirsChart({
+  title,
+  data,
+  marks,
+  visible,
+  xDomain = ["auto", "auto"],
+  yDomain = ["auto", "auto"],
+  onCoordinate,
+  overlays,
+  overlayWindow,
+}: Props) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const resetRef = useRef<() => void>(() => undefined);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const clipId = useId().replace(/:/g, "");
+
+  useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+
+    const seriesKeys = ALL_KEYS.filter((key) => visible?.[key] ?? true);
+    const baseMinX = xDomain[0] === "auto" ? data[0]?.time ?? 0 : xDomain[0];
+    const baseMaxX = xDomain[1] === "auto" ? data.at(-1)?.time ?? 1 : xDomain[1];
+    const window = data.filter((point) => point.time >= baseMinX && point.time <= baseMaxX);
+    const allY = (window.length > 0 ? window : data).flatMap((point) => seriesKeys.map((key) => point[key]));
+    const baseMinY = yDomain[0] === "auto" ? Math.min(...allY, -1) : yDomain[0];
+    const baseMaxY = yDomain[1] === "auto" ? Math.max(...allY, 1) : yDomain[1];
+
+    const x0 = d3.scaleLinear().domain([baseMinX, baseMaxX]).range([PAD.left, WIDTH - PAD.right]);
+    const y0 = d3.scaleLinear().domain([baseMinY, baseMaxY]).range([HEIGHT - PAD.bottom, PAD.top]);
+
+    const svg = d3.select(svgEl);
+    svg.selectAll("*").remove();
+
+    // Clip so zoomed/panned series stay inside the plot rectangle.
+    svg
+      .append("clipPath")
+      .attr("id", `clip-${clipId}`)
+      .append("rect")
+      .attr("x", PAD.left)
+      .attr("y", PAD.top)
+      .attr("width", WIDTH - PAD.left - PAD.right)
+      .attr("height", HEIGHT - PAD.top - PAD.bottom);
+
+    svg
+      .append("rect")
+      .attr("x", PAD.left)
+      .attr("y", PAD.top)
+      .attr("width", WIDTH - PAD.left - PAD.right)
+      .attr("height", HEIGHT - PAD.top - PAD.bottom)
+      .attr("fill", "#fbfdfe");
+
+    const gGrid = svg.append("g");
+    const gAxisX = svg.append("g").attr("transform", `translate(0, ${HEIGHT - PAD.bottom})`);
+    const gMarks = svg.append("g").attr("clip-path", `url(#clip-${clipId})`);
+    const gLines = svg.append("g").attr("clip-path", `url(#clip-${clipId})`);
+    const gOverlay = svg.append("g").attr("clip-path", `url(#clip-${clipId})`).attr("pointer-events", "none");
+
+    // Static axis titles.
+    svg
+      .append("text")
+      .attr("x", 14)
+      .attr("y", PAD.top + (HEIGHT - PAD.top - PAD.bottom) / 2)
+      .attr("transform", `rotate(-90, 14, ${PAD.top + (HEIGHT - PAD.top - PAD.bottom) / 2})`)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#64748b")
+      .attr("font-size", "11px")
+      .text("Data (mM*mm)");
+    svg
+      .append("text")
+      .attr("x", (WIDTH + PAD.left - PAD.right) / 2)
+      .attr("y", HEIGHT - 2)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#64748b")
+      .attr("font-size", "11px")
+      .text("Time (s)");
+
+    // Legend.
+    const legend = svg.append("g").attr("transform", `translate(${PAD.left}, 4)`);
+    seriesKeys.forEach((key, index) => {
+      const g = legend.append("g").attr("transform", `translate(${index * 92}, 0)`);
+      g.append("line").attr("x1", 0).attr("x2", 18).attr("y1", 0).attr("y2", 0).attr("stroke", colors[key]).attr("stroke-width", 3);
+      g.append("text").attr("x", 24).attr("y", 4).attr("fill", "#475569").attr("font-size", "11px").text(labels[key]);
+    });
+
+    const line = (scaleX: d3.ScaleLinear<number, number>, scaleY: d3.ScaleLinear<number, number>, key: SeriesKey) =>
+      d3
+        .line<NirsPoint>()
+        .defined((point) => Number.isFinite(point[key]))
+        .x((point) => scaleX(point.time))
+        .y((point) => scaleY(point[key]));
+
+    const draw = (sx: d3.ScaleLinear<number, number>, sy: d3.ScaleLinear<number, number>) => {
+      // Horizontal gridlines + y axis.
+      gGrid
+        .call((g) =>
+          g
+            .selectAll<SVGGElement, number>("g.gl")
+            .data(sy.ticks(5))
+            .join((enter) => enter.append("g").attr("class", "gl"))
+            .call((row) => {
+              row
+                .selectAll("line")
+                .data((d) => [d])
+                .join("line")
+                .attr("x1", PAD.left)
+                .attr("x2", WIDTH - PAD.right)
+                .attr("y1", (d) => sy(d))
+                .attr("y2", (d) => sy(d))
+                .attr("stroke", "#e8eef2");
+              row
+                .selectAll("text")
+                .data((d) => [d])
+                .join("text")
+                .attr("x", 6)
+                .attr("y", (d) => sy(d) + 4)
+                .attr("fill", "#64748b")
+                .attr("font-size", "11px")
+                .text((d) => formatNumber(d, 1));
+            }),
+        );
+
+      // X axis ticks labelled in seconds.
+      gAxisX
+        .call(
+          d3
+            .axisBottom(sx)
+            .ticks(6)
+            .tickFormat((d) => `${formatNumber(Number(d), 1)}s`),
+        )
+        .call((g) => g.selectAll("text").attr("fill", "#64748b").attr("font-size", "11px"))
+        .call((g) => g.selectAll(".domain, .tick line").attr("stroke", "#cbd5e1"));
+
+      // Marks.
+      gMarks
+        .selectAll("line")
+        .data(marks)
+        .join("line")
+        .attr("x1", (m) => sx(m))
+        .attr("x2", (m) => sx(m))
+        .attr("y1", PAD.top)
+        .attr("y2", HEIGHT - PAD.bottom)
+        .attr("stroke", "#111827")
+        .attr("stroke-dasharray", "4 4");
+
+      // Series paths.
+      gLines
+        .selectAll<SVGPathElement, SeriesKey>("path")
+        .data(seriesKeys)
+        .join("path")
+        .attr("fill", "none")
+        .attr("stroke", (key) => colors[key])
+        .attr("stroke-width", 2)
+        .attr("d", (key) => line(sx, sy, key)(data));
+
+      // Analysis overlays: regression line + min/max dots per visible series.
+      const drawn = (overlays ?? []).filter((overlay) => seriesKeys.includes(overlay.key));
+      const groups = gOverlay
+        .selectAll<SVGGElement, SeriesOverlay>("g.ov")
+        .data(drawn, (overlay) => overlay.key)
+        .join((enter) => enter.append("g").attr("class", "ov"));
+      groups.each(function (overlay) {
+        const g = d3.select(this);
+        g.selectAll("*").remove();
+        const color = colors[overlay.key];
+        const start = overlayWindow ? Math.max(sx.domain()[0], overlayWindow[0]) : sx.domain()[0];
+        const end = overlayWindow ? Math.min(sx.domain()[1], overlayWindow[1]) : sx.domain()[1];
+        const yAt = (time: number) => overlay.intercept + overlay.slope * time;
+        if (end > start && Number.isFinite(yAt(start)) && Number.isFinite(yAt(end))) {
+          g.append("line")
+            .attr("x1", sx(start))
+            .attr("y1", sy(yAt(start)))
+            .attr("x2", sx(end))
+            .attr("y2", sy(yAt(end)))
+            .attr("stroke", color)
+            .attr("stroke-width", 1.5)
+            .attr("stroke-dasharray", "6 4")
+            .attr("opacity", 0.9);
+        }
+        if (Number.isFinite(overlay.min.value)) {
+          g.append("circle").attr("cx", sx(overlay.min.time)).attr("cy", sy(overlay.min.value)).attr("r", 3.5).attr("fill", color).attr("stroke", "#fff").attr("stroke-width", 1);
+        }
+        if (Number.isFinite(overlay.max.value)) {
+          g.append("circle").attr("cx", sx(overlay.max.time)).attr("cy", sy(overlay.max.value)).attr("r", 3.5).attr("fill", color).attr("stroke", "#fff").attr("stroke-width", 1);
+        }
+      });
+    };
+
+    draw(x0, y0);
+
+    // Interaction: wheel zoom + drag pan (d3-zoom), hover readout, double-click reset.
+    let zx = x0;
+    let zy = y0;
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([1, 64])
+      .extent([
+        [PAD.left, PAD.top],
+        [WIDTH - PAD.right, HEIGHT - PAD.bottom],
+      ])
+      .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        zx = event.transform.rescaleX(x0);
+        zy = event.transform.rescaleY(y0);
+        draw(zx, zy);
+        setIsZoomed(event.transform.k !== 1 || event.transform.x !== 0 || event.transform.y !== 0);
+      });
+
+    svg.call(zoom).on("dblclick.zoom", () => {
+      svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity);
+    });
+
+    resetRef.current = () => svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity);
+
+    if (onCoordinate) {
+      svg.on("mousemove.coord", (event: MouseEvent) => {
+        const [px, py] = d3.pointer(event, svgEl);
+        if (px < PAD.left || px > WIDTH - PAD.right || py < PAD.top || py > HEIGHT - PAD.bottom) return;
+        onCoordinate({ chart: title, x: zx.invert(px), y: zy.invert(py) });
+      });
+    }
+  }, [data, marks, visible, xDomain, yDomain, overlays, overlayWindow, onCoordinate, title, clipId]);
 
   return (
     <section className="h-full min-h-[220px]">
@@ -81,7 +279,7 @@ export function NirsChart({ title, data, marks, visible, xDomain = ["auto", "aut
           {isZoomed && (
             <button
               type="button"
-              onClick={reset}
+              onClick={() => resetRef.current()}
               className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-50"
             >
               Reset zoom
@@ -90,82 +288,13 @@ export function NirsChart({ title, data, marks, visible, xDomain = ["auto", "aut
           <span className="text-xs text-slate-500">{data.length} samples</span>
         </div>
       </div>
-      <svg className="h-[calc(100%-28px)] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
-        <rect x={pad.left} y={pad.top} width={width - pad.left - pad.right} height={height - pad.top - pad.bottom} fill="#fbfdfe" />
-        {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
-          <g key={tick}>
-            <line x1={pad.left} x2={width - pad.right} y1={pad.top + tick * (height - pad.top - pad.bottom)} y2={pad.top + tick * (height - pad.top - pad.bottom)} stroke="#e8eef2" />
-            <text x={6} y={pad.top + tick * (height - pad.top - pad.bottom) + 4} className="fill-slate-500 text-[11px]">
-              {formatNumber(maxY - tick * spanY, 1)}
-            </text>
-          </g>
-        ))}
-        <text
-          x={14}
-          y={pad.top + (height - pad.top - pad.bottom) / 2}
-          className="origin-center -rotate-90 fill-slate-500 text-[11px]"
-          textAnchor="middle"
-        >
-          Data (mM*mm)
-        </text>
-        {marks.filter((mark) => mark >= minX && mark <= maxX).map((mark) => (
-          <line key={mark} x1={x(mark)} x2={x(mark)} y1={pad.top} y2={height - pad.bottom} stroke="#111827" strokeDasharray="4 4" />
-        ))}
-        {seriesKeys.map((key) => (
-          <path key={key} d={pathFor(key)} fill="none" stroke={colors[key]} strokeWidth="2" />
-        ))}
-        <text x={pad.left} y={height - 8} className="fill-slate-500 text-[11px]">{formatNumber(minX, 1)}s</text>
-        <text x={width - pad.right - 44} y={height - 8} className="fill-slate-500 text-[11px]">{formatNumber(maxX, 1)}s</text>
-        <text x={(width + pad.left - pad.right) / 2} y={height - 8} className="fill-slate-500 text-[11px]" textAnchor="middle">Time (s)</text>
-        <g transform={`translate(${pad.left}, 4)`}>
-          {seriesKeys.map((key, index) => (
-            <g key={key} transform={`translate(${index * 92}, 0)`}>
-              <line x1="0" x2="18" y1="0" y2="0" stroke={colors[key]} strokeWidth="3" />
-              <text x="24" y="4" className="fill-slate-600 text-[11px]">{labels[key]}</text>
-            </g>
-          ))}
-        </g>
-        <rect
-          ref={plotRef}
-          x={pad.left}
-          y={pad.top}
-          width={width - pad.left - pad.right}
-          height={height - pad.top - pad.bottom}
-          fill="transparent"
-          className="cursor-crosshair"
-          {...plotHandlers}
-        />
-        {overlays?.map((overlay) => {
-          if (!seriesKeys.includes(overlay.key)) return null;
-          const color = colors[overlay.key];
-          const start = overlayWindow ? Math.max(minX, overlayWindow[0]) : minX;
-          const end = overlayWindow ? Math.min(maxX, overlayWindow[1]) : maxX;
-          const yAt = (time: number) => overlay.intercept + overlay.slope * time;
-          const lineVisible = end > start && Number.isFinite(yAt(start)) && Number.isFinite(yAt(end));
-          return (
-            <g key={`overlay-${overlay.key}`} pointerEvents="none">
-              {lineVisible && (
-                <line
-                  x1={x(start)}
-                  y1={y(yAt(start))}
-                  x2={x(end)}
-                  y2={y(yAt(end))}
-                  stroke={color}
-                  strokeWidth="1.5"
-                  strokeDasharray="6 4"
-                  opacity="0.9"
-                />
-              )}
-              {Number.isFinite(overlay.min.value) && (
-                <circle cx={x(overlay.min.time)} cy={y(overlay.min.value)} r="3.5" fill={color} stroke="#ffffff" strokeWidth="1" />
-              )}
-              {Number.isFinite(overlay.max.value) && (
-                <circle cx={x(overlay.max.time)} cy={y(overlay.max.value)} r="3.5" fill={color} stroke="#ffffff" strokeWidth="1" />
-              )}
-            </g>
-          );
-        })}
-      </svg>
+      <svg
+        ref={svgRef}
+        className="h-[calc(100%-28px)] w-full cursor-crosshair touch-none"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        role="img"
+        aria-label={title}
+      />
     </section>
   );
 }

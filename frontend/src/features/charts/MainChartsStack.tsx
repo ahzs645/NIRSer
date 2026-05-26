@@ -36,6 +36,10 @@ type MainChartsStackProps = {
   channel2Overlays?: SeriesOverlay[];
   loadCellOverlay?: LoadCellOverlay;
   overlayWindow?: [number, number];
+  /** False when no device/imported/demo data is loaded yet — shows the empty-state CTA. */
+  hasData?: boolean;
+  /** Loads the synthetic demo dataset (wired to resetDemo in App). */
+  onLoadDemo?: () => void;
 };
 
 export function MainChartsStack({
@@ -56,6 +60,8 @@ export function MainChartsStack({
   channel2Overlays,
   loadCellOverlay,
   overlayWindow,
+  hasData = true,
+  onLoadDemo,
 }: MainChartsStackProps) {
   const coordinateText = coordinate
     ? `${coordinate.chart}: X ${formatNumber(coordinate.x)}s, Y ${formatNumber(coordinate.y)}`
@@ -63,9 +69,25 @@ export function MainChartsStack({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-        {coordinateText}
-      </div>
+      {hasData ? (
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+          {coordinateText}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center">
+          <p className="text-sm font-medium text-slate-700">No data loaded yet</p>
+          <p className="text-xs text-slate-500">Load the synthetic demo dataset, or connect a device / import a file.</p>
+          {onLoadDemo && (
+            <button
+              type="button"
+              onClick={onLoadDemo}
+              className="mt-1 rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+            >
+              Load demo data
+            </button>
+          )}
+        </div>
+      )}
       {panesVisible.channel1 && (
         <Card>
           <CardContent className="h-[300px]">

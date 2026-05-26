@@ -18,6 +18,11 @@ function nav(name: RegExp) {
   return screen.getAllByRole("button", { name })[0];
 }
 
+/** The app boots empty; most tests need the demo dataset (packets, marks, load cell) loaded first. */
+function loadDemo() {
+  fireEvent.click(screen.getByRole("button", { name: /Load demo data/i }));
+}
+
 describe("App shell & navigation", () => {
   it("boots on the acquisition view with the core cards rendered", () => {
     render(<App />);
@@ -30,6 +35,20 @@ describe("App shell & navigation", () => {
     expect(screen.getByRole("img", { name: "Channel 1" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Channel 2" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Load Cell" })).toBeInTheDocument();
+  });
+
+  it("starts with no data and populates the charts when demo data is loaded", () => {
+    render(<App />);
+    // No demo seeded on load: empty-state CTA is shown and there are no marks.
+    expect(screen.getByText(/No data loaded yet/i)).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /^Delete mark/ })).toHaveLength(0);
+
+    loadDemo();
+
+    // Demo dataset fills marks and dismisses the empty state.
+    expect(screen.getByText(/Bias: not set/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Delete mark/ })).toHaveLength(3);
+    expect(screen.queryByText(/No data loaded yet/i)).not.toBeInTheDocument();
   });
 
   it("switches to the Analysis view", () => {
@@ -49,8 +68,9 @@ describe("App shell & navigation", () => {
 describe("Marks", () => {
   it("adds a mark at a typed time and deletes it again", () => {
     render(<App />);
+    loadDemo();
     const before = screen.getAllByRole("button", { name: /^Delete mark/ }).length;
-    expect(before).toBe(3); // default marks: 5, 12, 20
+    expect(before).toBe(3); // demo marks: 5, 12, 20
 
     fireEvent.change(screen.getByPlaceholderText(/Mark time/i), { target: { value: "7.5" } });
     fireEvent.click(screen.getByRole("button", { name: /Add Mark at Typed Time/i }));
@@ -111,6 +131,7 @@ describe("Bias & chart controls", () => {
 
   it("sets the bias at a typed time", () => {
     render(<App />);
+    loadDemo();
     expect(screen.getByText(/Bias: not set/i)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Bias at time" }), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Set bias at time" }));
@@ -202,6 +223,7 @@ describe("Unsaved-work guard", () => {
 describe("Marks context menu & keyboard shortcuts", () => {
   it("deletes a mark from the right-click context menu", () => {
     render(<App />);
+    loadDemo();
     const before = screen.getAllByRole("button", { name: /^Delete mark/ }).length;
     const row = screen.getByRole("textbox", { name: "Mark 1" }).closest("div")!;
     fireEvent.contextMenu(row);
@@ -211,6 +233,7 @@ describe("Marks context menu & keyboard shortcuts", () => {
 
   it("adds a mark with the Ctrl+M accelerator", () => {
     render(<App />);
+    loadDemo();
     const before = screen.getAllByRole("button", { name: /^Delete mark/ }).length;
     fireEvent.keyDown(window, { key: "m", ctrlKey: true });
     expect(screen.getAllByRole("button", { name: /^Delete mark/ }).length).toBe(before + 1);

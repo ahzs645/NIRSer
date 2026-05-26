@@ -73,10 +73,12 @@ export default function App() {
       return defaultSettings;
     }
   });
-  const [packets, setPackets] = useState<NirsPacket[]>(() => createDemoPackets());
+  // Start empty: the page loads with no fake data. Demo data is loaded on demand
+  // via the "Load demo data" button (resetDemo); serial/import fill these too.
+  const [packets, setPackets] = useState<NirsPacket[]>([]);
   const [importedSamples, setImportedSamples] = useState<ProcessedNirsSample[] | null>(null);
-  const [loadCell, setLoadCell] = useState<Point[]>(() => createDemoLoadCell(900, defaultSettings.loadCellTimePerPacket));
-  const [marks, setMarks] = useState<number[]>([5, 12, 20]);
+  const [loadCell, setLoadCell] = useState<Point[]>([]);
+  const [marks, setMarks] = useState<number[]>([]);
   const [sections, setSections] = useState(defaultSections);
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "");
   const [sectionDraft, setSectionDraft] = useState({ name: "", initialTime: "0", endTime: "5" });
@@ -207,6 +209,7 @@ export default function App() {
       ? visualizerChannels.channel2.slice(0, visualizerFrame + 1)
       : displayedSamples.map((sample) => sample.channel2);
   const visibleLoadCell = sampleByDisplayRate(loadCell, settings.loadCellFrameRate).slice(0, shownSamples);
+  const hasData = packets.length > 0 || (importedSamples?.length ?? 0) > 0 || loadCell.length > 0;
   const channel1XDomain = parseDomain(bounds.channel1LowerX, bounds.channel1UpperX);
   const channel2XDomain = parseDomain(bounds.channel2LowerX, bounds.channel2UpperX);
   const channel1Domain: [number, number] | ["auto", "auto"] = autoScaleY
@@ -1075,6 +1078,8 @@ export default function App() {
                 channel2Overlays={channel2Overlays}
                 loadCellOverlay={loadCellOverlay}
                 overlayWindow={analysisOverlayWindow}
+                hasData={hasData}
+                onLoadDemo={resetDemo}
               />
             )}
             {extraDeviceEnabled && (
