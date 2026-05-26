@@ -6,8 +6,11 @@ import {
   compileBcmdRuntimeModel,
   euclideanDistance,
   exportBcmdDependencyDot,
+  exportBcmdModeldef,
   exportBcmdInputStepsCsv,
   exportBcmdModelSummaryCsv,
+  exportBcmdRuntimeModule,
+  exportBcmdSbmlLikeXml,
   exportBcmdTextReport,
   parseBcmdInput,
   parseBcmdJob,
@@ -52,6 +55,8 @@ export function BcmdDevTool() {
   const [equationFilter, setEquationFilter] = useState<BcmdEquationFilter>("all");
   const [simulationEnd, setSimulationEnd] = useState("5");
   const [simulationStep, setSimulationStep] = useState("0.1");
+  const [simulationMethod, setSimulationMethod] = useState<"rk4" | "euler" | "adaptive">("rk4");
+  const [parameterText, setParameterText] = useState("");
 
   const parsed = useMemo(() => {
     try {
@@ -59,11 +64,19 @@ export function BcmdDevTool() {
       const input = parseBcmdInput(inputText);
       const job = parseBcmdJob(jobText, "batch.dsimjob");
       const runtime = compileBcmdRuntimeModel(model);
+      const parameterOverrides = Object.fromEntries(parameterText.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean).flatMap((item) => {
+        const [name, value] = item.split(/\s*=\s*/);
+        const number = Number(value);
+        return name && Number.isFinite(number) ? [[name, number]] : [];
+      }));
       const simulation = runtime.roots.length > 0
         ? runtime.simulate({
             start: 0,
             end: Math.max(0.1, Number(simulationEnd) || 5),
             step: Math.max(0.001, Number(simulationStep) || 0.1),
+            method: simulationMethod,
+            input,
+            parameters: parameterOverrides,
           })
         : simulateOde<Record<string, number>, Record<string, number>>({
             initialState: { Vc: 0 },
@@ -91,7 +104,7 @@ export function BcmdDevTool() {
         iterations: 60,
         seed: 8,
       });
-      return { model, input, job, runtime, simulation, inputSeries, simulationSeries, sensitivity, fit, error: null };
+      return { model, input, job, runtime, simulation, inputSeries, simulationSeries, sensitivity, fit, parameterOverrides, error: null };
     } catch (parseError) {
       return {
         model: null,
@@ -103,10 +116,11 @@ export function BcmdDevTool() {
         simulationSeries: [],
         sensitivity: [],
         fit: null,
+        parameterOverrides: {},
         error: parseError instanceof Error ? parseError.message : "BCMD parse failed.",
       };
     }
-  }, [modelText, inputText, jobText, simulationEnd, simulationStep]);
+  }, [modelText, inputText, jobText, simulationEnd, simulationStep, simulationMethod, parameterText]);
 
   async function importText(files: FileList | null, setter: (value: string) => void) {
     const text = await readFirstTextFile(files);
@@ -270,7 +284,19 @@ export function BcmdDevTool() {
                 <span className="text-xs font-medium text-slate-600">Step</span>
                 <input className="h-9 w-full rounded-md border border-slate-200 px-2 text-sm" value={simulationStep} onChange={(event) => setSimulationStep(event.target.value)} />
               </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-slate-600">Method</span>
+                <select className="h-9 w-full rounded-md border border-slate-200 px-2 text-sm" value={simulationMethod} onChange={(event) => setSimulationMethod(event.target.value as typeof simulationMethod)}>
+                  <option value="rk4">RK4</option>
+                  <option value="euler">Euler</option>
+                  <option value="adaptive">Adaptive RK4</option>
+                </select>
+              </label>
             </div>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600">Parameter overrides</span>
+              <textarea className="min-h-20 w-full rounded-md border border-slate-200 p-2 font-mono text-xs" placeholder="R=10, C=0.1" value={parameterText} onChange={(event) => setParameterText(event.target.value)} />
+            </label>
             <div className="flex items-center gap-2 text-slate-700">
               <Play size={15} /> RK4 final state: <span className="font-semibold">{finalSimulation ? Object.entries(finalSimulation.state).map(([key, value]) => `${key}=${value.toFixed(4)}`).join(", ") : "none"}</span>
             </div>
@@ -306,6 +332,15 @@ export function BcmdDevTool() {
             </Button>
             <Button type="button" disabled={!parsed.model} onClick={() => parsed.model && downloadText("bcmd-report.txt", exportBcmdTextReport(parsed.model))}>
               <Download size={15} /> Text report
+            </Button>
+            <Button type="button" disabled={!parsed.model} onClick={() => parsed.model && downloadText("bcmd.sbml.xml", exportBcmdSbmlLikeXml(parsed.model))}>
+              <Download size={15} /> SBML-ish XML
+            </Button>
+            <Button type="button" disabled={!parsed.model} onClick={() => parsed.model && downloadText("model.modeldef", exportBcmdModeldef(parsed.model))}>
+              <Download size={15} /> Modeldef
+            </Button>
+            <Button type="button" disabled={!parsed.model} onClick={() => parsed.model && downloadText("bcmd-runtime.ts", exportBcmdRuntimeModule(parsed.model))}>
+              <Download size={15} /> Runtime TS
             </Button>
           </CardContent>
         </Card>

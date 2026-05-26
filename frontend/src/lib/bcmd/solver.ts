@@ -24,6 +24,7 @@ export interface SimulationOptions<TState extends OdeState = OdeState, TParamete
   step: number;
   method?: "euler" | "rk4";
   output?: OdeOutput<TState, TParameters>;
+  project?: (context: OdeContext<TState, TParameters>) => TState;
 }
 
 export interface SimulationPoint<TState extends OdeState = OdeState> {
@@ -94,7 +95,51 @@ export function simulateOde<TState extends OdeState, TParameters extends OdePara
       state = combineRk4(state, k1, k2, k3, k4, step);
     }
     t += step;
+    if (options.project) state = options.project({ t, state, parameters });
     points.push(point(t, state, parameters, options.output));
+  }
+
+  return points;
+}
+
+export interface AdaptiveOdeOptions<TState extends OdeState = OdeState, TParameters extends OdeParameters = OdeParameters>
+  extends Omit<SimulationOptions<TState, TParameters>, "step" | "method"> {
+  initialStep: number;
+  minStep?: number;
+  maxStep?: number;
+  tolerance?: number;
+}
+
+function maxStateError<TState extends OdeState>(left: TState, right: TState) {
+  return Math.max(...Object.keys(left).map((key) => Math.abs(left[key] - right[key])), 0);
+}
+
+export function simulateAdaptiveOde<TState extends OdeState, TParameters extends OdeParameters = OdeParameters>(
+  options: AdaptiveOdeOptions<TState, TParameters>,
+) {
+  const tolerance = options.tolerance ?? 1e-5;
+  const minStep = options.minStep ?? options.initialStep / 128;
+  const maxStep = options.maxStep ?? options.initialStep * 8;
+  const parameters = (options.parameters ?? {}) as TParameters;
+  const points: Array<SimulationPoint<TState>> = [];
+  let t = options.start;
+  let step = options.initialStep;
+  let state = { ...options.initialState };
+  points.push(point(t, state, parameters, options.output));
+
+  while (t < options.end - Number.EPSILON) {
+    const trialStep = Math.min(step, options.end - t);
+    const coarse = simulateOde({ ...options, parameters, start: t, end: t + trialStep, step: trialStep, initialState: state, method: "rk4" }).at(-1)?.state ?? state;
+    const fine = simulateOde({ ...options, parameters, start: t, end: t + trialStep, step: trialStep / 2, initialState: state, method: "rk4" }).at(-1)?.state ?? state;
+    const error = maxStateError(coarse, fine);
+    if (error <= tolerance || trialStep <= minStep) {
+      t += trialStep;
+      state = options.project?.({ t, state: fine, parameters }) ?? fine;
+      points.push(point(t, state, parameters, options.output));
+      if (error < tolerance / 8) step = Math.min(maxStep, trialStep * 2);
+    } else {
+      step = Math.max(minStep, trialStep / 2);
+    }
   }
 
   return points;
