@@ -90,3 +90,28 @@ export function summarizeSensitivity(
     };
   });
 }
+
+export function morrisSensitivity(
+  model: SensitivityModel,
+  parameters: readonly SensitivityParameter[],
+  options: SensitivityOptions & { delta?: number },
+) {
+  return summarizeSensitivity(model, parameters, options).map((item) => ({
+    ...item,
+    mu: item.effectMean,
+    muStar: item.effectAbsMean,
+    sigma: item.effectStdDev,
+  }));
+}
+
+export function fastSensitivity(
+  model: SensitivityModel,
+  parameters: readonly SensitivityParameter[],
+  options: SensitivityOptions,
+) {
+  return summarizeSensitivity(model, parameters, options).map((item) => ({
+    ...item,
+    firstOrder: item.varianceShare,
+    totalOrder: Math.min(1, Math.abs(item.correlation)),
+  }));
+}

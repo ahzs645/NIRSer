@@ -11,6 +11,16 @@ const MI_SINGLE = 7;
 const MI_DOUBLE = 9;
 const MI_MATRIX = 14;
 const MI_COMPRESSED = 15;
+const MX_STRUCT = 2;
+const MX_CHAR = 4;
+const MX_DOUBLE = 6;
+const MX_SINGLE = 7;
+const MX_INT8 = 8;
+const MX_UINT8 = 9;
+const MX_INT16 = 10;
+const MX_UINT16 = 11;
+const MX_INT32 = 12;
+const MX_UINT32 = 13;
 
 const bytesByType = new Map([
   [MI_INT8, 1],
@@ -35,6 +45,11 @@ type NumericMatrix = {
 };
 
 export type MatNumericMatrix = NumericMatrix;
+
+export type MatValue =
+  | { kind: "numeric"; name: string; dims: number[]; values: number[]; classType: number }
+  | { kind: "char"; name: string; dims: number[]; value: string }
+  | { kind: "struct"; name: string; dims: number[]; fields: Record<string, MatValue[]> };
 
 function aligned(offset: number) {
   return offset + ((8 - (offset % 8)) % 8);
@@ -95,13 +110,55 @@ function numericValues(element: MatElement) {
   return values;
 }
 
-function parseMatrix(bytes: Uint8Array): NumericMatrix | null {
+function matrixClass(elements: MatElement[]) {
+  const flags = numericValues(elements[0]);
+  return Math.trunc(flags[0] ?? 0) & 0xff;
+}
+
+function matrixName(elements: MatElement[]) {
+  return new TextDecoder().decode(elements[2].bytes).replace(/\0/g, "").trim();
+}
+
+function parseMatValue(bytes: Uint8Array): MatValue | null {
   const elements = readElements(bytes);
-  if (elements.length < 4) return null;
+  if (elements.length < 3) return null;
+  const classType = matrixClass(elements);
   const dims = numericValues(elements[1]).map((value) => Math.trunc(value));
-  const name = new TextDecoder().decode(elements[2].bytes).replace(/\0/g, "").trim();
-  const values = numericValues(elements[3]);
-  return name && dims.length > 0 && values.length > 0 ? { name, dims, values } : null;
+  const name = matrixName(elements);
+
+  if ([MX_DOUBLE, MX_SINGLE, MX_INT8, MX_UINT8, MX_INT16, MX_UINT16, MX_INT32, MX_UINT32].includes(classType)) {
+    const values = elements[3] ? numericValues(elements[3]) : [];
+    return { kind: "numeric", name, dims, values, classType };
+  }
+
+  if (classType === MX_CHAR) {
+    const chars = elements[3] ? numericValues(elements[3]) : [];
+    return { kind: "char", name, dims, value: String.fromCharCode(...chars).replace(/\0/g, "") };
+  }
+
+  if (classType === MX_STRUCT && elements.length >= 5) {
+    const fieldNameLength = Math.max(1, Math.trunc(numericValues(elements[3])[0] ?? 1));
+    const rawNames = new TextDecoder().decode(elements[4].bytes);
+    const fieldNames: string[] = [];
+    for (let offset = 0; offset + fieldNameLength <= rawNames.length; offset += fieldNameLength) {
+      const fieldName = rawNames.slice(offset, offset + fieldNameLength).replace(/\0/g, "").trim();
+      if (fieldName) fieldNames.push(fieldName);
+    }
+    const fields: Record<string, MatValue[]> = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, []]));
+    let elementIndex = 5;
+    const structCount = Math.max(1, dims.reduce((product, value) => product * value, 1));
+    for (let item = 0; item < structCount; item += 1) {
+      for (const fieldName of fieldNames) {
+        const fieldElement = elements[elementIndex];
+        elementIndex += 1;
+        const parsed = fieldElement?.type === MI_MATRIX ? parseMatValue(fieldElement.bytes) : null;
+        if (parsed) fields[fieldName].push(parsed);
+      }
+    }
+    return { kind: "struct", name, dims, fields };
+  }
+
+  return null;
 }
 
 function columnMajorToRows(matrix: NumericMatrix) {
@@ -117,8 +174,17 @@ function flattenColumn(matrix: NumericMatrix) {
 }
 
 export function parseNumericMatFile(buffer: ArrayBuffer): Map<string, MatNumericMatrix> {
-  const bytes = new Uint8Array(buffer);
+  const variables = parseMatVariables(buffer);
   const matrices = new Map<string, MatNumericMatrix>();
+  for (const [name, value] of variables) {
+    if (value.kind === "numeric" && value.values.length > 0) matrices.set(name, value);
+  }
+  return matrices;
+}
+
+export function parseMatVariables(buffer: ArrayBuffer): Map<string, MatValue> {
+  const bytes = new Uint8Array(buffer);
+  const variables = new Map<string, MatValue>();
   let offset = 128;
   const view = new DataView(buffer);
 
@@ -128,18 +194,18 @@ export function parseNumericMatFile(buffer: ArrayBuffer): Map<string, MatNumeric
     if (tag.type === MI_COMPRESSED) {
       for (const element of readElements(decompressSync(payload))) {
         if (element.type === MI_MATRIX) {
-          const matrix = parseMatrix(element.bytes);
-          if (matrix) matrices.set(matrix.name, matrix);
+          const value = parseMatValue(element.bytes);
+          if (value?.name) variables.set(value.name, value);
         }
       }
     } else if (tag.type === MI_MATRIX) {
-      const matrix = parseMatrix(payload);
-      if (matrix) matrices.set(matrix.name, matrix);
+      const value = parseMatValue(payload);
+      if (value?.name) variables.set(value.name, value);
     }
     offset = tag.type === MI_COMPRESSED ? tag.rawNextOffset : tag.nextOffset;
   }
 
-  return matrices;
+  return variables;
 }
 
 export function parseMatFile(buffer: ArrayBuffer): BrunoMatData {

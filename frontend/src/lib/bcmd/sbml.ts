@@ -35,6 +35,23 @@ export function exportBcmdSbmlLikeXml(model: BcmdProcessedModel) {
   ].join("\n");
 }
 
+export function exportBcmdSbmlCoreXml(model: BcmdProcessedModel) {
+  const compartments = '<compartment id="default" constant="true" size="1"/>';
+  const parameters = model.symbols
+    .filter((symbol) => symbol.role === "parameter" || symbol.role === "input")
+    .map((symbol) => `<parameter id="${xmlEscape(symbol.name)}" constant="${symbol.role === "parameter" ? "true" : "false"}"/>`)
+    .join("");
+  const species = model.roots
+    .map((name) => `<species id="${xmlEscape(name)}" compartment="default" hasOnlySubstanceUnits="false" boundaryCondition="false" constant="false"/>`)
+    .join("");
+  const reactions = model.reactions.map((reaction) => {
+    const reactants = Object.entries(reaction.delta).filter(([, delta]) => delta < 0).map(([name, delta]) => `<speciesReference species="${xmlEscape(name)}" stoichiometry="${Math.abs(delta)}"/>`).join("");
+    const products = Object.entries(reaction.delta).filter(([, delta]) => delta > 0).map(([name, delta]) => `<speciesReference species="${xmlEscape(name)}" stoichiometry="${delta}"/>`).join("");
+    return `<reaction id="${xmlEscape(reaction.name)}" reversible="false"><listOfReactants>${reactants}</listOfReactants><listOfProducts>${products}</listOfProducts><kineticLaw><math xmlns="http://www.w3.org/1998/Math/MathML"><ci>${xmlEscape(reaction.rate || "0")}</ci></math></kineticLaw></reaction>`;
+  }).join("");
+  return `<?xml version="1.0" encoding="UTF-8"?><sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2"><model id="bcmd_model"><listOfCompartments>${compartments}</listOfCompartments><listOfSpecies>${species}</listOfSpecies><listOfParameters>${parameters}</listOfParameters><listOfReactions>${reactions}</listOfReactions></model></sbml>\n`;
+}
+
 export function exportBcmdModeldef(model: BcmdProcessedModel) {
   return `${model.nodes.map((node) => node.source).join("\n")}\n`;
 }

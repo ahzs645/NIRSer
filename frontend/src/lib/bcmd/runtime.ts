@@ -1,4 +1,5 @@
-import type { BcmdAssignmentNode, BcmdConstraintNode, BcmdDifferentialEquationNode, BcmdProcessedModel } from "./ast";
+import type { BcmdAlgebraicEquationNode, BcmdAssignmentNode, BcmdConstraintNode, BcmdDifferentialEquationNode, BcmdProcessedModel } from "./ast";
+import { solveNewtonSystem } from "./dae";
 import { evaluateBcmdExpression, parseBcmdExpression } from "./expressions";
 import { simulateAdaptiveOde, simulateOde, type SimulationPoint } from "./solver";
 import type { BcmdInputDocument } from "./input";
@@ -18,6 +19,7 @@ export interface BcmdRuntimeSimulationOptions {
   parameters?: Record<string, number>;
   input?: BcmdInputDocument;
   method?: "euler" | "rk4" | "adaptive";
+  solveAlgebraic?: boolean;
 }
 
 function inputScopeAt(input: BcmdInputDocument | undefined, t: number) {
@@ -33,6 +35,7 @@ function inputScopeAt(input: BcmdInputDocument | undefined, t: number) {
 export function compileBcmdRuntimeModel(model: BcmdProcessedModel): BcmdRuntimeModel {
   const assignments = model.nodes.filter((node): node is BcmdAssignmentNode => node.kind === "assignment");
   const differentials = model.nodes.filter((node): node is BcmdDifferentialEquationNode => node.kind === "differentialEquation");
+  const algebraics = model.nodes.filter((node): node is BcmdAlgebraicEquationNode => node.kind === "algebraicEquation");
   const constraints = model.nodes.filter((node): node is BcmdConstraintNode => node.kind === "constraint");
   const diagnostics: string[] = [];
   const scope: Record<string, number> = { [model.independent]: 0 };
@@ -77,12 +80,36 @@ export function compileBcmdRuntimeModel(model: BcmdProcessedModel): BcmdRuntimeM
     }
   }).filter((item): item is { node: BcmdConstraintNode; expression: ReturnType<typeof parseBcmdExpression> } => item !== null);
 
+  const compiledAlgebraics = algebraics.map((node) => {
+    try {
+      return { node, left: parseBcmdExpression(node.leftExpression), right: parseBcmdExpression(node.rightExpression) };
+    } catch (error) {
+      diagnostics.push(`Line ${node.startLine}: ${error instanceof Error ? error.message : "algebraic parse failed"}`);
+      return null;
+    }
+  }).filter((item): item is { node: BcmdAlgebraicEquationNode; left: ReturnType<typeof parseBcmdExpression>; right: ReturnType<typeof parseBcmdExpression> } => item !== null);
+
   const evaluateScope = (t: number, state: Record<string, number>, runtimeParameters: Record<string, number>, input?: BcmdInputDocument) => {
     const runtimeScope = { ...parameters, ...runtimeParameters, ...inputScopeAt(input, t), ...state, [model.independent]: t };
     for (const { node, expression } of compiledAssignments) {
       if (!rootSet.has(node.target)) runtimeScope[node.target] = evaluateBcmdExpression(expression, runtimeScope);
     }
     return runtimeScope;
+  };
+
+  const solveAlgebraics = (scope: Record<string, number>) => {
+    if (compiledAlgebraics.length === 0) return scope;
+    const names = compiledAlgebraics.map(({ node }) => node.target);
+    const solution = solveNewtonSystem(
+      names,
+      Object.fromEntries(names.map((name) => [name, scope[name] ?? 0])),
+      (values) => {
+        const merged = { ...scope, ...values };
+        return compiledAlgebraics.map(({ left, right }) => evaluateBcmdExpression(left, merged) - evaluateBcmdExpression(right, merged));
+      },
+      { maxIterations: 20, tolerance: 1e-7 },
+    );
+    return { ...scope, ...solution.values };
   };
 
   const applyConstraints = (state: Record<string, number>, scope: Record<string, number>) => {
@@ -109,10 +136,13 @@ export function compileBcmdRuntimeModel(model: BcmdProcessedModel): BcmdRuntimeM
         start: options.start ?? 0,
         end: options.end ?? 10,
         derivative: ({ t, state, parameters: runtimeParameters }: { t: number; state: Record<string, number>; parameters: Record<string, number> }) => {
-        const runtimeScope = evaluateScope(t, state, runtimeParameters, options.input);
-        const derivative = Object.fromEntries(
-          compiledDifferentials.map(({ node, expression }) => [node.target, evaluateBcmdExpression(expression, runtimeScope)]),
-        );
+        const runtimeScope = options.solveAlgebraic === false ? evaluateScope(t, state, runtimeParameters, options.input) : solveAlgebraics(evaluateScope(t, state, runtimeParameters, options.input));
+        const derivative = Object.fromEntries(compiledDifferentials.map(({ node, expression }) => [node.target, evaluateBcmdExpression(expression, runtimeScope)]));
+        for (const { node } of compiledDifferentials) {
+          for (const auxiliary of node.auxiliaries) {
+            derivative[auxiliary.name] = ((evaluateBcmdExpression(parseBcmdExpression(node.expression), runtimeScope) - (derivative[node.target] ?? 0)) / auxiliary.coefficient) * auxiliary.sign;
+          }
+        }
         for (const reaction of model.reactions) {
           const rate = evaluateBcmdExpression(parseBcmdExpression(reaction.rate || "0"), runtimeScope);
           for (const [name, delta] of Object.entries(reaction.delta)) {
@@ -124,7 +154,7 @@ export function compileBcmdRuntimeModel(model: BcmdProcessedModel): BcmdRuntimeM
         project: ({ t, state, parameters: runtimeParameters }: { t: number; state: Record<string, number>; parameters: Record<string, number> }) =>
         applyConstraints(state, evaluateScope(t, state, runtimeParameters, options.input)),
         output: ({ t, state, parameters: runtimeParameters }: { t: number; state: Record<string, number>; parameters: Record<string, number> }) => {
-        const runtimeScope = evaluateScope(t, state, runtimeParameters, options.input);
+        const runtimeScope = options.solveAlgebraic === false ? evaluateScope(t, state, runtimeParameters, options.input) : solveAlgebraics(evaluateScope(t, state, runtimeParameters, options.input));
         return Object.fromEntries(model.outputs.map((name) => [name, runtimeScope[name] ?? 0]));
       },
       };

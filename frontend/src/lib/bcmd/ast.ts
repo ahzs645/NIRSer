@@ -107,6 +107,8 @@ export type BcmdDifferentialEquationNode = BcmdSourceSpan & {
   kind: "differentialEquation";
   target: string;
   expression: string;
+  auxiliaries: BcmdAuxiliaryDerivative[];
+  label?: string;
   dependencies: string[];
 };
 
@@ -115,6 +117,7 @@ export type BcmdAlgebraicEquationNode = BcmdSourceSpan & {
   target: string;
   leftExpression: string;
   rightExpression: string;
+  label?: string;
   dependencies: string[];
 };
 
@@ -124,12 +127,14 @@ export type BcmdConstraintNode = BcmdSourceSpan & {
   operator: "<" | "<=" | ">" | ">=" | "==" | "!=";
   leftExpression: string;
   rightExpression: string;
+  label?: string;
   dependencies: string[];
 };
 
 export type BcmdReactionParticipant = {
   species: string;
   coefficient?: number;
+  compartment?: string;
 };
 
 export type BcmdReactionNode = BcmdSourceSpan & {
@@ -138,6 +143,8 @@ export type BcmdReactionNode = BcmdSourceSpan & {
   reactants: BcmdReactionParticipant[];
   products: BcmdReactionParticipant[];
   rateExpression?: string;
+  reverseRateExpression?: string;
+  label?: string;
   dependencies: string[];
 };
 

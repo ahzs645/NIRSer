@@ -1,5 +1,6 @@
 export * from "./ast";
 export * from "./data";
+export * from "./dae";
 export * from "./exporters";
 export * from "./expressions";
 export * from "./graph";

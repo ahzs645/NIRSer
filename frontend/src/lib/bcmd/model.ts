@@ -111,7 +111,9 @@ export function processBcmdModel(text: string, options: { importResolver?: (name
   const outputs = directiveValues(program.directives, "output");
   const externs = directiveValues(program.directives, "extern");
   const independent = directiveValues(program.directives, "independent")[0] ?? "t";
-  const roots = unique(program.statements.filter((node) => node.kind === "differentialEquation").map((node) => node.target));
+  const roots = unique(program.statements
+    .filter((node) => node.kind === "differentialEquation")
+    .flatMap((node) => [node.target, ...node.auxiliaries.map((auxiliary) => auxiliary.name)]));
   const rootSet = new Set(roots);
   const inputSet = new Set(inputs);
   const outputSet = new Set(outputs);

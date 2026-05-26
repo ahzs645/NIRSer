@@ -12,6 +12,7 @@ import type {
   BcmdSourceSpan,
   BcmdStatementNode,
   BcmdUnknownNode,
+  BcmdAuxiliaryDerivative,
 } from "./ast";
 import { collectBcmdSourceRecords } from "./lexer";
 
@@ -65,6 +66,11 @@ function sourceSpan(source: string, startLine: number, endLine = startLine): Bcm
   return { startLine, endLine, source };
 }
 
+function splitLabel(source: string) {
+  const match = source.match(/^(.*?)\s+"([^"\n]+)"\s*$/);
+  return match ? { body: match[1].trim(), label: match[2].trim() } : { body: source, label: undefined };
+}
+
 function parseDirective(source: string, startLine: number, endLine: number): BcmdDirectiveNode | undefined {
   const match = source.match(new RegExp(`^@(${identifierPattern})(?:\\s+(.*))?$`));
   if (!match) return undefined;
@@ -101,14 +107,21 @@ function parseDifferentialEquation(
   startLine: number,
   endLine: number,
 ): BcmdDifferentialEquationNode | undefined {
-  const match = source.match(new RegExp(`^(${identifierPattern})'\\s*=\\s*(.+)$`));
+  const { body, label } = splitLabel(source);
+  const match = body.match(new RegExp(`^(${identifierPattern})'\\s*((?:[-+]\\s*(?:\\d*\\.?\\d+\\s*)?${identifierPattern}'\\s*)*)=\\s*(.+)$`));
   if (!match) return undefined;
+  const auxiliaries: BcmdAuxiliaryDerivative[] = [];
+  for (const aux of match[2].matchAll(new RegExp(`([-+])\\s*(\\d*\\.?\\d+)?\\s*(${identifierPattern})'`, "g"))) {
+    auxiliaries.push({ sign: aux[1] === "-" ? -1 : 1, coefficient: aux[2] ? Number(aux[2]) : 1, name: aux[3] });
+  }
   return {
     ...sourceSpan(source, startLine, endLine),
     kind: "differentialEquation",
     target: match[1],
-    expression: match[2].trim(),
-    dependencies: without(extractExpressionSymbols(match[2]), [match[1]]),
+    expression: match[3].trim(),
+    auxiliaries,
+    label,
+    dependencies: without(extractExpressionSymbols(match[3]), [match[1], ...auxiliaries.map((item) => item.name)]),
   };
 }
 
@@ -117,7 +130,8 @@ function parseAlgebraicEquation(
   startLine: number,
   endLine: number,
 ): BcmdAlgebraicEquationNode | undefined {
-  const match = source.match(new RegExp(`^(${identifierPattern})\\s*:\\s*(.+?)\\s*=\\s*(.+)$`));
+  const { body, label } = splitLabel(source);
+  const match = body.match(new RegExp(`^(${identifierPattern})\\s*:\\s*(.+?)\\s*=\\s*(.+)$`));
   if (!match) return undefined;
   const leftExpression = match[2].trim();
   const rightExpression = match[3].trim();
@@ -127,6 +141,7 @@ function parseAlgebraicEquation(
     target: match[1],
     leftExpression,
     rightExpression,
+    label,
     dependencies: without(extractExpressionSymbols(`${leftExpression} ${rightExpression}`), [match[1]]),
   };
 }
@@ -146,7 +161,8 @@ function parseAssignment(source: string, startLine: number, endLine: number): Bc
 }
 
 function parseConstraint(source: string, startLine: number, endLine: number): BcmdConstraintNode | undefined {
-  const match = source.match(/^~?\s*(.+?)\s*(<=|>=|==|!=|<|>)\s*(.+)$/);
+  const { body, label } = splitLabel(source);
+  const match = body.match(/^~?\s*(.+?)\s*(<=|>=|==|!=|<|>)\s*(.+)$/);
   if (!match) return undefined;
   const leftExpression = match[1].trim();
   const rightExpression = match[3].trim();
@@ -159,6 +175,7 @@ function parseConstraint(source: string, startLine: number, endLine: number): Bc
     operator: match[2] as BcmdConstraintNode["operator"],
     leftExpression,
     rightExpression,
+    label,
     dependencies: unique([...leftSymbols, ...extractExpressionSymbols(rightExpression)]),
   };
 }
@@ -169,8 +186,8 @@ function parseParticipantList(source: string): BcmdReactionParticipant[] {
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => {
-      const bracketed = part.match(new RegExp(`^(?:(\\d*\\.?\\d+)\\s*)?\\[(${identifierPattern})(?:\\s*,\\s*${identifierPattern})?\\]$`));
-      if (bracketed) return { species: bracketed[2], coefficient: bracketed[1] ? Number(bracketed[1]) : undefined };
+      const bracketed = part.match(new RegExp(`^(?:(\\d*\\.?\\d+)\\s*)?\\[(${identifierPattern})(?:\\s*,\\s*(${identifierPattern}))?\\]$`));
+      if (bracketed) return { species: bracketed[2], compartment: bracketed[3], coefficient: bracketed[1] ? Number(bracketed[1]) : undefined };
       const match = part.match(new RegExp(`^(?:(\\d*\\.?\\d+)\\s*)?(${identifierPattern})$`));
       return match ? { species: match[2], coefficient: match[1] ? Number(match[1]) : undefined } : { species: part };
     });
@@ -179,10 +196,12 @@ function parseParticipantList(source: string): BcmdReactionParticipant[] {
 function parseReaction(source: string, startLine: number, endLine: number): BcmdReactionNode | undefined {
   const arrow = source.includes("<->") ? "<->" : source.includes("->") ? "->" : undefined;
   if (!arrow) return undefined;
-  const [left, rightAndRate] = source.split(arrow);
+  const { body, label } = splitLabel(source);
+  const [left, rightAndRate] = body.split(arrow);
   if (!rightAndRate) return undefined;
   const braceRate = rightAndRate.match(/^(.*?)\s*\{(.*)\}\s*$/);
-  const [right, rateExpression] = braceRate ? [braceRate[1], braceRate[2]] : rightAndRate.split(/\s*;\s*/, 2);
+  const [right, rateText] = braceRate ? [braceRate[1], braceRate[2]] : rightAndRate.split(/\s*;\s*/, 2);
+  const rateParts = rateText?.split(/\s*;\s*/).filter(Boolean) ?? [];
   const reactants = parseParticipantList(left);
   const products = parseParticipantList(right);
   const species = [...reactants, ...products].map((participant) => participant.species);
@@ -192,7 +211,9 @@ function parseReaction(source: string, startLine: number, endLine: number): Bcmd
     reversible: arrow === "<->",
     reactants,
     products,
-    rateExpression: rateExpression?.trim() || undefined,
+    rateExpression: rateParts[0]?.trim() || undefined,
+    reverseRateExpression: rateParts[1]?.trim() || undefined,
+    label,
     dependencies: without(extractExpressionSymbols(source), species),
   };
 }
