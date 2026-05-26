@@ -58,7 +58,7 @@ export type BcmdProcessedSymbol = {
 };
 
 export type BcmdProcessedModel = {
-  nodes: BcmdModelNode[];
+  nodes: BcmdStatementNode[];
   diagnostics: BcmdDiagnostic[];
   independent: string;
   imports: string[];

@@ -161,7 +161,7 @@ export function processBcmdModel(text: string, options: { importResolver?: (name
 
   const reactionNodes = program.statements.filter((node): node is BcmdReactionNode => node.kind === "reaction");
   return {
-    nodes: [],
+    nodes: program.statements,
     diagnostics: program.statements
       .filter((node) => node.kind === "unknown")
       .map((node) => ({ line: node.startLine, source: node.source, message: "Unrecognized BCMD statement." })),

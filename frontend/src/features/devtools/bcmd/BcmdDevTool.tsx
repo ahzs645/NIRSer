@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { Download, FileUp, Play, RefreshCw } from "lucide-react";
 import {
+  bcmdInputStepSeries,
+  buildBcmdGraph,
+  compileBcmdRuntimeModel,
   euclideanDistance,
   exportBcmdDependencyDot,
   exportBcmdInputStepsCsv,
@@ -13,12 +16,17 @@ import {
   summarizeBcmdProcessedModel,
   summarizeSensitivity,
   randomSearch,
+  type BcmdEquationFilter,
+  type BcmdGraphView,
 } from "../../../lib/bcmd/index";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/field";
 import { downloadText } from "../../../lib/utils";
 import { readFirstTextFile } from "../brunoUiUtils";
+import { BcmdDependencyGraph } from "./BcmdDependencyGraph";
+import { BcmdEquationBrowser } from "./BcmdEquationBrowser";
+import { BcmdSeriesChart } from "./BcmdSeriesChart";
 
 const sampleModel = [
   "@input V",
@@ -40,21 +48,37 @@ export function BcmdDevTool() {
   const [modelText, setModelText] = useState(sampleModel);
   const [inputText, setInputText] = useState(sampleInput);
   const [jobText, setJobText] = useState(sampleJob);
+  const [graphView, setGraphView] = useState<BcmdGraphView>("symbols");
+  const [equationFilter, setEquationFilter] = useState<BcmdEquationFilter>("all");
+  const [simulationEnd, setSimulationEnd] = useState("5");
+  const [simulationStep, setSimulationStep] = useState("0.1");
 
   const parsed = useMemo(() => {
     try {
       const model = processBcmdModel(modelText);
       const input = parseBcmdInput(inputText);
       const job = parseBcmdJob(jobText, "batch.dsimjob");
-      const simulation = simulateOde({
-        initialState: { Vc: 0 },
-        parameters: { R: 10, C: 0.1, V: 1 },
-        start: 0,
-        end: 5,
-        step: 0.25,
-        derivative: ({ state, parameters }) => ({ Vc: (parameters.V - state.Vc) / (parameters.R * parameters.C) }),
-        output: ({ state }) => ({ Vc: state.Vc }),
-      });
+      const runtime = compileBcmdRuntimeModel(model);
+      const simulation = runtime.roots.length > 0
+        ? runtime.simulate({
+            start: 0,
+            end: Math.max(0.1, Number(simulationEnd) || 5),
+            step: Math.max(0.001, Number(simulationStep) || 0.1),
+          })
+        : simulateOde<Record<string, number>, Record<string, number>>({
+            initialState: { Vc: 0 },
+            parameters: { R: 10, C: 0.1, V: 1 },
+            start: 0,
+            end: 5,
+            step: 0.25,
+            derivative: ({ state, parameters }) => ({ Vc: (parameters.V - state.Vc) / (parameters.R * parameters.C) }),
+            output: ({ state }) => ({ Vc: state.Vc }),
+          });
+      const inputSeries = bcmdInputStepSeries(input);
+      const simulationSeries = runtime.roots.map((name) => ({
+        name,
+        points: simulation.map((point) => ({ time: point.t, value: point.state[name] ?? 0 })),
+      }));
       const sensitivity = summarizeSensitivity(
         ({ R, C }) => 1 / (R * C),
         [
@@ -67,19 +91,22 @@ export function BcmdDevTool() {
         iterations: 60,
         seed: 8,
       });
-      return { model, input, job, simulation, sensitivity, fit, error: null };
+      return { model, input, job, runtime, simulation, inputSeries, simulationSeries, sensitivity, fit, error: null };
     } catch (parseError) {
       return {
         model: null,
         input: null,
         job: null,
+        runtime: null,
         simulation: [],
+        inputSeries: [],
+        simulationSeries: [],
         sensitivity: [],
         fit: null,
         error: parseError instanceof Error ? parseError.message : "BCMD parse failed.",
       };
     }
-  }, [modelText, inputText, jobText]);
+  }, [modelText, inputText, jobText, simulationEnd, simulationStep]);
 
   async function importText(files: FileList | null, setter: (value: string) => void) {
     const text = await readFirstTextFile(files);
@@ -88,6 +115,7 @@ export function BcmdDevTool() {
 
   const summary = parsed.model ? summarizeBcmdProcessedModel(parsed.model) : null;
   const finalSimulation = parsed?.simulation.at(-1);
+  const graph = parsed.model ? buildBcmdGraph(parsed.model, graphView) : { nodes: [], edges: [] };
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -124,6 +152,40 @@ export function BcmdDevTool() {
           </CardContent>
         </Card>
 
+        {parsed.model && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Dependency graph</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {(["symbols", "equations", "reactions", "io"] as BcmdGraphView[]).map((view) => (
+                  <button
+                    key={view}
+                    type="button"
+                    className={`rounded-md border px-2 py-1 text-xs ${graphView === view ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                    onClick={() => setGraphView(view)}
+                  >
+                    {view}
+                  </button>
+                ))}
+              </div>
+              <BcmdDependencyGraph nodes={graph.nodes} edges={graph.edges} />
+            </CardContent>
+          </Card>
+        )}
+
+        {parsed.model && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Equation browser</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BcmdEquationBrowser model={parsed.model} filter={equationFilter} onFilterChange={setEquationFilter} />
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>BCMD input and job</CardTitle>
@@ -149,6 +211,17 @@ export function BcmdDevTool() {
             </div>
           </CardContent>
         </Card>
+
+        {parsed.inputSeries.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Input step chart</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BcmdSeriesChart series={parsed.inputSeries} />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -188,9 +261,23 @@ export function BcmdDevTool() {
             <CardTitle>Client-side run</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center gap-2 text-slate-700">
-              <Play size={15} /> RK4 demo final Vc: <span className="font-semibold">{finalSimulation?.state.Vc.toFixed(4) ?? "0.0000"}</span>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-slate-600">End</span>
+                <input className="h-9 w-full rounded-md border border-slate-200 px-2 text-sm" value={simulationEnd} onChange={(event) => setSimulationEnd(event.target.value)} />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-slate-600">Step</span>
+                <input className="h-9 w-full rounded-md border border-slate-200 px-2 text-sm" value={simulationStep} onChange={(event) => setSimulationStep(event.target.value)} />
+              </label>
             </div>
+            <div className="flex items-center gap-2 text-slate-700">
+              <Play size={15} /> RK4 final state: <span className="font-semibold">{finalSimulation ? Object.entries(finalSimulation.state).map(([key, value]) => `${key}=${value.toFixed(4)}`).join(", ") : "none"}</span>
+            </div>
+            {parsed.runtime?.diagnostics.length ? (
+              <div className="rounded border border-amber-200 bg-amber-50 p-2 text-amber-800">{parsed.runtime.diagnostics.join("; ")}</div>
+            ) : null}
+            {parsed.simulationSeries.length > 0 && <BcmdSeriesChart series={parsed.simulationSeries} height={190} />}
             <div className="text-slate-600">Best R from random search: {parsed.fit?.best.R.toFixed(3) ?? "0.000"}</div>
             <div className="space-y-1">
               {parsed?.sensitivity.map((item) => (
