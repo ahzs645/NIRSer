@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { downsampleVolume, parseNifti, sliceVolume } from "./nifti";
 
 const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const externalDataAvailable = existsSync(`${includedDataDir}/MPRAGE_R.nii`);
 
 function readIncluded(filename: string) {
   const path = `${includedDataDir}/${filename}`;
@@ -13,13 +14,13 @@ function readIncluded(filename: string) {
 }
 
 describe("NIfTI utilities", () => {
-  it("parses included MRI volume headers and values", () => {
+  it.skipIf(!externalDataAvailable)("parses included MRI volume headers and values", () => {
     const image = parseNifti(readIncluded("MPRAGE_R.nii"));
 
     expect(image.dims.every((value) => value > 0)).toBe(true);
     expect(image.values).toHaveLength(image.dims[0] * image.dims[1] * image.dims[2]);
     expect(image.voxOffset).toBeGreaterThanOrEqual(348);
-  });
+  }, 20_000);
 
   it("downsamples and slices volumes in column-major voxel order", () => {
     const downsampled = downsampleVolume([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2], 2);

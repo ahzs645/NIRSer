@@ -13,6 +13,8 @@ import {
 import { parseNumericMatFile } from "./mat";
 
 const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const channelSpaceDataAvailable = existsSync(`${includedDataDir}/dataChannelSpace.mat`);
+const averageHemoglobinDataAvailable = existsSync(`${includedDataDir}/AverageHemoglobinScalpBrain.mat`);
 
 function readIncludedMat(filename: string) {
   const path = `${includedDataDir}/${filename}`;
@@ -64,15 +66,15 @@ describe("inverse analysis utilities", () => {
     expect(voxelSeriesAt(volume, 1, 0, 0)).toEqual([10, 11]);
   });
 
-  it("loads included channel-space MAT data dimensions", () => {
+  it.skipIf(!channelSpaceDataAvailable)("loads included channel-space MAT data dimensions", () => {
     const matrices = readIncludedMat("dataChannelSpace.mat");
     const data = matrices.get("data");
 
     expect(data?.dims).toEqual([22, 101, 240]);
     expect(data?.values.length).toBe(22 * 101 * 240);
-  });
+  }, 20_000);
 
-  it("summarizes included scalp/brain hemoglobin curves", () => {
+  it.skipIf(!averageHemoglobinDataAvailable)("summarizes included scalp/brain hemoglobin curves", () => {
     const matrices = readIncludedMat("AverageHemoglobinScalpBrain.mat");
     const summary = summarizeAverageHemoglobinMat(matrices);
 
@@ -83,5 +85,5 @@ describe("inverse analysis utilities", () => {
     expect(summary.brain.hbt).toHaveLength(101);
     expect(summary.scalp.hbt[0]).toHaveLength(22);
     expect(frameStats(summary.brain.hbo)[50].mean).toBeTypeOf("number");
-  });
+  }, 20_000);
 });

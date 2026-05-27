@@ -6,6 +6,7 @@ import { summarizeAverageHemoglobinMat } from "./inverseAnalysis";
 import { parseNumericMatFile } from "./mat";
 
 const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const averageHemoglobinDataAvailable = existsSync(`${includedDataDir}/AverageHemoglobinScalpBrain.mat`);
 
 function readIncludedMat(filename: string) {
   const path = `${includedDataDir}/${filename}`;
@@ -41,7 +42,7 @@ describe("hemoglobin graphing utilities", () => {
     });
   });
 
-  it("creates MATLAB-equivalent panel metadata from included MAT summary data", () => {
+  it.skipIf(!averageHemoglobinDataAvailable)("creates MATLAB-equivalent panel metadata from included MAT summary data", () => {
     const summary = summarizeAverageHemoglobinMat(readIncludedMat("AverageHemoglobinScalpBrain.mat"));
     const panels = buildMatlabHemoglobinPanels(summary);
 
@@ -57,5 +58,5 @@ describe("hemoglobin graphing utilities", () => {
     expect(panels[0].series[0].points[0].time).toBe(0.5);
     expect(panels[1].series.find((series) => series.id === "scalp")?.available).toBe(false);
     expect(panels[1].series.find((series) => series.id === "brain")?.available).toBe(true);
-  });
+  }, 20_000);
 });

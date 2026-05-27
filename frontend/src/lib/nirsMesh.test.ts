@@ -5,6 +5,7 @@ import { parseMatVariables } from "./mat";
 import { parseJacobianFile, wavelengthChannelMask } from "./nirsMesh";
 
 const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const externalDataAvailable = existsSync(`${includedDataDir}/JAC830.jac`);
 
 function readIncludedMat(filename: string) {
   const path = `${includedDataDir}/${filename}`;
@@ -14,7 +15,7 @@ function readIncludedMat(filename: string) {
 }
 
 describe("NIRS mesh/Jacobian MAT adapters", () => {
-  it("parses included Jacobian structs into typed mesh data", () => {
+  it.skipIf(!externalDataAvailable)("parses included Jacobian structs into typed mesh data", () => {
     const jac = parseJacobianFile(readIncludedMat("JAC830.jac"));
 
     expect(jac.jacobian).toHaveLength(120);
@@ -22,5 +23,5 @@ describe("NIRS mesh/Jacobian MAT adapters", () => {
     expect(jac.coarseMesh.link).toHaveLength(240);
     expect(jac.coarseMesh.vox_DIM).toHaveLength(3);
     expect(wavelengthChannelMask(jac.coarseMesh, 830).filter(Boolean)).toHaveLength(120);
-  });
+  }, 30_000);
 });

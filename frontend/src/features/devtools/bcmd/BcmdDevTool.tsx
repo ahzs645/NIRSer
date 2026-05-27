@@ -30,6 +30,7 @@ import { readFirstTextFile } from "../brunoUiUtils";
 import { BcmdDependencyGraph } from "./BcmdDependencyGraph";
 import { BcmdEquationBrowser } from "./BcmdEquationBrowser";
 import { BcmdSeriesChart } from "./BcmdSeriesChart";
+import { BcmdBestFitChart, BcmdSensitivityHeatmap } from "./BcmdAnalysisCharts";
 
 const sampleModel = [
   "@input V",
@@ -305,6 +306,8 @@ export function BcmdDevTool() {
             ) : null}
             {parsed.simulationSeries.length > 0 && <BcmdSeriesChart series={parsed.simulationSeries} height={190} />}
             <div className="text-slate-600">Best R from random search: {parsed.fit?.best.R.toFixed(3) ?? "0.000"}</div>
+            {parsed.fit && <BcmdBestFitChart result={parsed.fit} />}
+            {parsed.sensitivity.length > 0 && <BcmdSensitivityHeatmap sensitivity={parsed.sensitivity} />}
             <div className="space-y-1">
               {parsed?.sensitivity.map((item) => (
                 <div key={item.name} className="flex justify-between rounded border border-slate-200 px-2 py-1">

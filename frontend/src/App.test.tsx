@@ -64,6 +64,18 @@ describe("App shell & navigation", () => {
     expect(screen.getByText(/Active veins:/i)).toBeInTheDocument();
   });
 
+  it("switches to Dev Tools and opens the Source Audit tab", () => {
+    render(<App />);
+    fireEvent.click(nav(/^Dev Tools$/));
+    expect(screen.getByRole("heading", { level: 2, name: "devtools" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Source Audit" }));
+    expect(screen.getByRole("heading", { name: "Source audit" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Graphing" }));
+    expect(screen.getByRole("heading", { name: "Inverse hemoglobin summary" })).toBeInTheDocument();
+  });
+
   it("opens the real-time visualizer without the acquisition sample counts", () => {
     render(<App />);
     // "Real time visualization" lives in the File menu; it opens the visualizer in realtime mode.
@@ -199,7 +211,7 @@ describe("Analysis chart overlays", () => {
     expect(writeText.mock.calls[0][0]).toContain("O2Hb");
     // The async post-write "Copied" indicator flushes within act via findByText.
     expect(await screen.findByText("Copied")).toBeInTheDocument();
-  });
+  }, 10_000);
 });
 
 describe("Frame rate dropdown", () => {

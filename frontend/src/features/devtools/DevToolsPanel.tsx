@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Activity, Boxes } from "lucide-react";
+import { Activity, Boxes, ChartSpline, FolderSearch } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { BrunoDevTool } from "./BrunoDevTool";
 import { BcmdDevTool } from "./bcmd/BcmdDevTool";
+import { SourceAuditPanel } from "./SourceAuditPanel";
+import { GraphingDevTool } from "./GraphingDevTool";
 
-type DevToolTab = "bruno" | "bcmd";
+type DevToolTab = "bruno" | "bcmd" | "graphing" | "source";
 
 export function DevToolsPanel() {
   const [tab, setTab] = useState<DevToolTab>("bruno");
@@ -18,8 +20,14 @@ export function DevToolsPanel() {
         <Button type="button" variant={tab === "bcmd" ? "primary" : "secondary"} onClick={() => setTab("bcmd")}>
           <Boxes size={16} /> BCMD
         </Button>
+        <Button type="button" variant={tab === "graphing" ? "primary" : "secondary"} onClick={() => setTab("graphing")}>
+          <ChartSpline size={16} /> Graphing
+        </Button>
+        <Button type="button" variant={tab === "source" ? "primary" : "secondary"} onClick={() => setTab("source")}>
+          <FolderSearch size={16} /> Source Audit
+        </Button>
       </div>
-      {tab === "bruno" ? <BrunoDevTool /> : <BcmdDevTool />}
+      {tab === "bruno" ? <BrunoDevTool /> : tab === "bcmd" ? <BcmdDevTool /> : tab === "graphing" ? <GraphingDevTool /> : <SourceAuditPanel />}
     </div>
   );
 }

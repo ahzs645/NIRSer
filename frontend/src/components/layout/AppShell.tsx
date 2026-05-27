@@ -173,7 +173,7 @@ export function AppShell({
                       />
                     </label>
                   ) : isDevTools ? (
-                    <div className="px-2 py-2 text-sm text-slate-500">Use the BRUNO panel import controls.</div>
+                    <div className="px-2 py-2 text-sm text-slate-500">Use the active Dev Tools panel controls.</div>
                   ) : (
                     <>
                       <button
