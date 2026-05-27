@@ -25,12 +25,14 @@ import {
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/field";
+import { buildBcmdBatchHeatmap, buildBcmdBestFitTables, parseBcmdBatchTable, type BcmdBatchHeatmap, type BcmdBestFitTables } from "../../../lib/bcmdBatch";
 import { downloadText } from "../../../lib/utils";
 import { readFirstTextFile } from "../brunoUiUtils";
 import { BcmdDependencyGraph } from "./BcmdDependencyGraph";
 import { BcmdEquationBrowser } from "./BcmdEquationBrowser";
 import { BcmdSeriesChart } from "./BcmdSeriesChart";
 import { BcmdBestFitChart, BcmdSensitivityHeatmap } from "./BcmdAnalysisCharts";
+import { BcmdBatchBestFitChart, BcmdBatchHeatmapChart } from "./BcmdBatchCharts";
 
 const sampleModel = [
   "@input V",
@@ -58,6 +60,10 @@ export function BcmdDevTool() {
   const [simulationStep, setSimulationStep] = useState("0.1");
   const [simulationMethod, setSimulationMethod] = useState<"rk4" | "euler" | "adaptive">("rk4");
   const [parameterText, setParameterText] = useState("");
+  const [batchHeatmap, setBatchHeatmap] = useState<BcmdBatchHeatmap | null>(null);
+  const [batchResultsText, setBatchResultsText] = useState("");
+  const [batchBestFit, setBatchBestFit] = useState<BcmdBestFitTables | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
 
   const parsed = useMemo(() => {
     try {
@@ -126,6 +132,33 @@ export function BcmdDevTool() {
   async function importText(files: FileList | null, setter: (value: string) => void) {
     const text = await readFirstTextFile(files);
     if (text !== null) setter(text);
+  }
+
+  async function importAggregate(files: FileList | null) {
+    const text = await readFirstTextFile(files);
+    if (text === null) return;
+    setBatchError(null);
+    try {
+      setBatchHeatmap(buildBcmdBatchHeatmap(parseBcmdBatchTable(text)));
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : "BCMD aggregate import failed.");
+    }
+  }
+
+  async function importResults(files: FileList | null) {
+    const text = await readFirstTextFile(files);
+    if (text !== null) setBatchResultsText(text);
+  }
+
+  async function importDistances(files: FileList | null) {
+    const text = await readFirstTextFile(files);
+    if (text === null) return;
+    setBatchError(null);
+    try {
+      setBatchBestFit(buildBcmdBestFitTables(batchResultsText, text));
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : "BCMD best-fit import failed.");
+    }
   }
 
   const summary = parsed.model ? summarizeBcmdProcessedModel(parsed.model) : null;
@@ -345,6 +378,31 @@ export function BcmdDevTool() {
             <Button type="button" disabled={!parsed.model} onClick={() => parsed.model && downloadText("bcmd-runtime.ts", exportBcmdRuntimeModule(parsed.model))}>
               <Download size={15} /> Runtime TS
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Batch analysis imports</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">
+                <FileUp size={15} /> aggregate.txt
+                <input className="hidden" type="file" accept=".txt,.csv,.tsv" onChange={(event) => void importAggregate(event.target.files)} />
+              </label>
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">
+                <FileUp size={15} /> results.txt
+                <input className="hidden" type="file" accept=".txt,.csv,.tsv" onChange={(event) => void importResults(event.target.files)} />
+              </label>
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">
+                <FileUp size={15} /> distances.txt
+                <input className="hidden" type="file" accept=".txt,.csv,.tsv" onChange={(event) => void importDistances(event.target.files)} />
+              </label>
+            </div>
+            {batchError && <div className="rounded border border-rose-200 bg-rose-50 p-2 text-rose-700">{batchError}</div>}
+            {batchHeatmap && <BcmdBatchHeatmapChart heatmap={batchHeatmap} />}
+            {batchBestFit && <BcmdBatchBestFitChart data={batchBestFit} />}
           </CardContent>
         </Card>
       </div>

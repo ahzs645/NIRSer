@@ -55,7 +55,7 @@ export function buildBcmdBestFitTables(resultsText: string, distancesText: strin
   const results = parseBcmdBatchTable(resultsText);
   const distances = parseBcmdBatchTable(distancesText);
   const timeHeaders = results.headers.filter((header) => /^t\d+/i.test(header));
-  const firstDataRow = results.rows.findIndex((row) => row.job);
+  const firstDataRow = results.rows.findIndex((row) => Number.isFinite(Number(row.job)));
   if (timeHeaders.length === 0 || firstDataRow < 1) throw new Error("BCMD results table is missing time-series rows.");
   const times = timeHeaders.map((header) => Number(results.rows[0][header])).filter(Number.isFinite);
   const measuredRow = results.rows[firstDataRow - 1];

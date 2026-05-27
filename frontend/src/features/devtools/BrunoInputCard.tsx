@@ -16,6 +16,7 @@ type Props = {
   onImportMat: (files: FileList | null) => void;
   onImportSlope: (files: FileList | null) => void;
   onImportExtinction: (files: FileList | null) => void;
+  onLoadExample?: () => void;
   children?: React.ReactNode;
 };
 
@@ -40,6 +41,7 @@ export function BrunoInputCard({
   onImportMat,
   onImportSlope,
   onImportExtinction,
+  onLoadExample,
   children,
 }: Props) {
   return (
@@ -50,6 +52,11 @@ export function BrunoInputCard({
           <ImportButton label="MAT" accept=".mat" onChange={onImportMat} />
           <ImportButton label="Slope" accept=".csv,.txt,.tsv" onChange={onImportSlope} />
           <ImportButton label="Extinction" accept=".csv,.txt,.tsv" onChange={onImportExtinction} />
+          {onLoadExample && (
+            <button type="button" className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50" onClick={onLoadExample}>
+              Example
+            </button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

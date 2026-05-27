@@ -3,6 +3,7 @@ import {
   brunoMatToInputs,
   fitSlopeFromAttenuation,
   parseAttenuationTable,
+  alignAttenuationByWavelength,
   parseExtinctionTable,
   parseSlopeTable,
   runBrunoFit,
@@ -77,6 +78,40 @@ export function BrunoDevTool() {
     }
   }
 
+  async function loadBundledExample() {
+    setError(null);
+    try {
+      const response = await fetch("/bruno-example/example_data.mat");
+      if (!response.ok) throw new Error("Bundled BRUNO example could not be loaded.");
+      const matData = parseMatFile(await response.arrayBuffer());
+      const data = brunoMatToInputs(matData);
+      if (matData.attenuation && matData.wavelengths && matData.sourceDetectorSeparations) {
+        const attenuation = alignAttenuationByWavelength(matData.attenuation, matData.wavelengths, matData.sourceDetectorSeparations);
+        const extinctionWavelengths = new Set((data.extinction ?? []).map((row) => row.wavelength));
+        const rows = matData.wavelengths
+          .map((wavelength, index) => ({ wavelength, values: attenuation[index] ?? [] }))
+          .filter((row) => extinctionWavelengths.has(row.wavelength));
+        setAttenuationText([
+          [0, ...matData.sourceDetectorSeparations].join(","),
+          ...rows.map((row) => [row.wavelength, ...row.values].join(",")),
+        ].join("\n"));
+        setInputMode("attenuation");
+      }
+      if (data.extinction) setExtinctionText(data.extinction.map((row) => `${row.wavelength},${row.hhb},${row.hbo2},${row.water}`).join("\n"));
+      if (data.bounds) {
+        setStartBounds(data.bounds.start.join(", "));
+        setLowerBounds(data.bounds.lower.join(", "));
+        setUpperBounds(data.bounds.upper.join(", "));
+      }
+      if (matData.sourceDetectorSeparations?.length) {
+        setDistance(String(matData.sourceDetectorSeparations.reduce((sum, value) => sum + value, 0) / matData.sourceDetectorSeparations.length));
+        setDistanceMax(String(Math.max(...matData.sourceDetectorSeparations)));
+      }
+    } catch (exampleError) {
+      setError(exampleError instanceof Error ? exampleError.message : "BRUNO example load failed.");
+    }
+  }
+
   async function importTextFile(fileList: FileList | null, setter: (value: string) => void) {
     const text = await readFirstTextFile(fileList);
     if (text !== null) setter(text);
@@ -139,6 +174,7 @@ export function BrunoDevTool() {
           onImportMat={(files) => void importMatFile(files)}
           onImportSlope={(files) => void importTextFile(files, setSlopeText)}
           onImportExtinction={(files) => void importTextFile(files, setExtinctionText)}
+          onLoadExample={() => void loadBundledExample()}
         >
           {result && <BrunoFitChart result={result} />}
         </BrunoInputCard>

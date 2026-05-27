@@ -242,6 +242,14 @@ export function fitSlopeFromAttenuation(attenuation: number[][], distances: numb
   });
 }
 
+export function alignAttenuationByWavelength(attenuation: number[][], wavelengths: number[], distances: number[]) {
+  if (attenuation.length === wavelengths.length) return attenuation;
+  if (attenuation.length === distances.length && attenuation.every((row) => row.length === wavelengths.length)) {
+    return wavelengths.map((_, wavelengthIndex) => distances.map((_, distanceIndex) => attenuation[distanceIndex][wavelengthIndex]));
+  }
+  return attenuation;
+}
+
 export function parseAttenuationTable(text: string) {
   const rows = parseNumericTable(text).filter((row) => row.length >= 2);
   if (rows.length === 0) throw new Error("Attenuation input is empty.");
@@ -265,7 +273,7 @@ export function brunoMatToInputs(data: BrunoMatData) {
   if (!data.wavelengths || !data.extinction) throw new Error("MAT file needs wavelengths and extinction variables.");
   const slope =
     data.attenuation && data.sourceDetectorSeparations
-      ? fitSlopeFromAttenuation(data.attenuation, data.sourceDetectorSeparations)
+      ? fitSlopeFromAttenuation(alignAttenuationByWavelength(data.attenuation, data.wavelengths, data.sourceDetectorSeparations), data.sourceDetectorSeparations)
       : undefined;
   return {
     wavelengths: data.wavelengths,

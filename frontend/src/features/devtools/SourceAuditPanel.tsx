@@ -16,6 +16,9 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 function SourceAuditResults({ summary }: { summary: SourceAuditSummary }) {
+  const docs = summary.categories.flatMap((category) =>
+    category.present.filter((path) => /(^|\/)(readme(\.md)?|license(\.txt)?|manual\.pdf|windows\.pdf)$/i.test(path)).map((path) => ({ category: category.label, path })),
+  );
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-3">
@@ -88,6 +91,22 @@ function SourceAuditResults({ summary }: { summary: SourceAuditSummary }) {
           </Card>
         ))}
       </div>
+      {docs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Source documentation and licenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm text-slate-700">
+              {docs.map((item) => (
+                <li key={`${item.category}-${item.path}`} className="font-mono text-xs">
+                  <span className="font-sans font-medium text-slate-900">{item.category}:</span> {item.path}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -5,12 +5,14 @@ import { HemoglobinSummaryStack } from "../../components/charts/HemoglobinSummar
 import { VolumeSliceViewer } from "../../components/charts/VolumeSliceViewer";
 import { buildMatlabHemoglobinPanels } from "../../lib/hemoglobinGraphing";
 import { summarizeAverageHemoglobinMat } from "../../lib/inverseAnalysis";
-import { parseNumericMatFile } from "../../lib/mat";
+import { parseMatVariables, parseNumericMatFile } from "../../lib/mat";
+import { jacobianSensitivityVolume, parseJacobianFile } from "../../lib/nirsMesh";
 import { parseNifti, type NiftiImage } from "../../lib/nifti";
 
 export function GraphingDevTool() {
   const [hemoglobinPanels, setHemoglobinPanels] = useState<ReturnType<typeof buildMatlabHemoglobinPanels> | null>(null);
   const [niftiImage, setNiftiImage] = useState<NiftiImage | null>(null);
+  const [sensitivityImage, setSensitivityImage] = useState<NiftiImage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHemoglobin(files: FileList | null) {
@@ -35,6 +37,19 @@ export function GraphingDevTool() {
     } catch (loadError) {
       setNiftiImage(null);
       setError(loadError instanceof Error ? loadError.message : "NIfTI import failed.");
+    }
+  }
+
+  async function loadJacobian(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setError(null);
+    try {
+      const jac = parseJacobianFile(parseMatVariables(await file.arrayBuffer()));
+      setSensitivityImage(jacobianSensitivityVolume(jac));
+    } catch (loadError) {
+      setSensitivityImage(null);
+      setError(loadError instanceof Error ? loadError.message : "Jacobian import failed.");
     }
   }
 
@@ -76,6 +91,24 @@ export function GraphingDevTool() {
             ) : (
               <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                 Load an MRI volume such as MPRAGE_R.nii to inspect axial, sagittal, or coronal slices.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Jacobian sensitivity map</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+              <FileUp size={15} /> JAC
+              <input className="hidden" type="file" accept=".jac,.mat" onChange={(event) => void loadJacobian(event.target.files)} />
+            </label>
+            {sensitivityImage ? (
+              <VolumeSliceViewer image={sensitivityImage} title="Jacobian sensitivity" color="heat" />
+            ) : (
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                Load JAC690.jac or JAC830.jac to inspect voxelized log-sensitivity slices.
               </div>
             )}
           </CardContent>

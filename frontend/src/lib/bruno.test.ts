@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fitSlopeFromAttenuation,
+  alignAttenuationByWavelength,
   parseAttenuationTable,
   parseExtinctionTable,
   parseSlopeTable,
@@ -40,6 +41,10 @@ describe("BRUNO tooling", () => {
     const parsed = parseAttenuationTable("0,30,25,20,15\n710,60,50,40,30\n711,30,25,20,15");
     expect(parsed.distances).toEqual([30, 25, 20, 15]);
     expect(fitSlopeFromAttenuation(parsed.attenuation, parsed.distances)).toEqual([2, 1]);
+    expect(alignAttenuationByWavelength([[60, 30], [50, 25], [40, 20], [30, 15]], [710, 711], [30, 25, 20, 15])).toEqual([
+      [60, 50, 40, 30],
+      [30, 25, 20, 15],
+    ]);
   });
 
   it("runs a bounded ZBC client-side fit", () => {

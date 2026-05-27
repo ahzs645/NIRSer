@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { BcmdBestFitChart, BcmdSensitivityHeatmap } from "./BcmdAnalysisCharts";
+import { BcmdBatchBestFitChart, BcmdBatchHeatmapChart } from "./BcmdBatchCharts";
 
 afterEach(() => cleanup());
 
@@ -30,5 +31,17 @@ describe("BcmdAnalysisCharts", () => {
 
     expect(screen.getByRole("img", { name: "BCMD sensitivity heat map" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "BCMD best fit trace" })).toBeInTheDocument();
+  });
+
+  it("renders imported BCMD batch charts", () => {
+    render(
+      <>
+        <BcmdBatchHeatmapChart heatmap={{ rows: ["rc"], columns: ["R"], values: [[0.2]], field: "dist_L1" }} />
+        <BcmdBatchBestFitChart data={{ times: [0, 1], measuredName: "Vc", measured: [0, 1], traces: [{ name: "best", score: 0.1, values: [0, 0.8] }] }} />
+      </>,
+    );
+
+    expect(screen.getByRole("img", { name: "BCMD batch heat map" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "BCMD batch best fit" })).toBeInTheDocument();
   });
 });

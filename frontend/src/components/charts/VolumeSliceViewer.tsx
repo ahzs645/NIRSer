@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as d3 from "d3";
 import { sliceVolume, type NiftiImage } from "../../lib/nifti";
 
 type Axis = "x" | "y" | "z";
@@ -7,38 +8,42 @@ function axisLimit(image: NiftiImage, axis: Axis) {
   return axis === "x" ? image.dims[0] - 1 : axis === "y" ? image.dims[1] - 1 : image.dims[2] - 1;
 }
 
-function colorScale(values: number[]) {
+function colorScale(values: number[], color: "gray" | "heat") {
   const finite = values.filter(Number.isFinite).sort((a, b) => a - b);
   const low = finite[Math.floor(finite.length * 0.02)] ?? 0;
   const high = finite[Math.floor(finite.length * 0.98)] ?? 1;
-  const span = high === low ? 1 : high - low;
-  return (value: number) => {
-    const scaled = Math.max(0, Math.min(255, Math.round(((value - low) / span) * 255)));
-    return `rgb(${scaled},${scaled},${scaled})`;
-  };
+  if (color === "heat") return d3.scaleSequential(d3.interpolateMagma).domain([low, high]).clamp(true);
+  return d3.scaleSequential(d3.interpolateGreys).domain([low, high]).clamp(true);
 }
 
 export function VolumeSliceViewer({ image, title = "MRI slice", color = "gray" }: { image: NiftiImage; title?: string; color?: "gray" | "heat" }) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [axis, setAxis] = useState<Axis>("z");
   const [slice, setSlice] = useState(() => Math.floor(image.dims[2] / 2));
   const maxSlice = axisLimit(image, axis);
   const clampedSlice = Math.max(0, Math.min(slice, maxSlice));
   const view = useMemo(() => sliceVolume(image.values, image.dims, axis, clampedSlice), [axis, clampedSlice, image]);
-  const fill = useMemo(() => {
-    const base = colorScale(view.values);
-    if (color === "gray") return base;
-    const finite = view.values.filter(Number.isFinite);
-    const low = Math.min(...finite);
-    const high = Math.max(...finite);
-    const span = high === low ? 1 : high - low;
-    return (value: number) => {
-      const t = Math.max(0, Math.min(1, (value - low) / span));
-      return `rgb(${Math.round(255 * t)},${Math.round(160 * t)},${Math.round(255 * (1 - t))})`;
-    };
-  }, [color, view.values]);
   const cell = Math.max(1, Math.min(5, Math.floor(420 / Math.max(view.width, view.height))));
   const width = view.width * cell;
   const height = view.height * cell;
+
+  useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const fill = colorScale(view.values, color);
+    const svg = d3.select(svgEl);
+    svg.selectAll("*").remove();
+    svg
+      .append("g")
+      .selectAll("rect")
+      .data(view.values)
+      .join("rect")
+      .attr("x", (_, index) => (index % view.width) * cell)
+      .attr("y", (_, index) => height - Math.floor(index / view.width) * cell - cell)
+      .attr("width", cell)
+      .attr("height", cell)
+      .attr("fill", (value) => (Number.isFinite(value) ? fill(value) : "#020617"));
+  }, [cell, color, height, view]);
 
   function changeAxis(value: Axis) {
     setAxis(value);
@@ -81,13 +86,7 @@ export function VolumeSliceViewer({ image, title = "MRI slice", color = "gray" }
         </div>
       </div>
       <div className="overflow-auto rounded-md border border-slate-200 bg-slate-950 p-3">
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} ${axis} slice`}>
-          {view.values.map((value, index) => {
-            const x = (index % view.width) * cell;
-            const y = Math.floor(index / view.width) * cell;
-            return <rect key={`${x}-${y}`} x={x} y={height - y - cell} width={cell} height={cell} fill={fill(value)} />;
-          })}
-        </svg>
+        <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} ${axis} slice`} />
       </div>
     </section>
   );
