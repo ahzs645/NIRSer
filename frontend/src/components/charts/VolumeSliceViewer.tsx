@@ -18,13 +18,24 @@ function colorScale(values: number[]) {
   };
 }
 
-export function VolumeSliceViewer({ image, title = "MRI slice" }: { image: NiftiImage; title?: string }) {
+export function VolumeSliceViewer({ image, title = "MRI slice", color = "gray" }: { image: NiftiImage; title?: string; color?: "gray" | "heat" }) {
   const [axis, setAxis] = useState<Axis>("z");
   const [slice, setSlice] = useState(() => Math.floor(image.dims[2] / 2));
   const maxSlice = axisLimit(image, axis);
   const clampedSlice = Math.max(0, Math.min(slice, maxSlice));
   const view = useMemo(() => sliceVolume(image.values, image.dims, axis, clampedSlice), [axis, clampedSlice, image]);
-  const fill = useMemo(() => colorScale(view.values), [view.values]);
+  const fill = useMemo(() => {
+    const base = colorScale(view.values);
+    if (color === "gray") return base;
+    const finite = view.values.filter(Number.isFinite);
+    const low = Math.min(...finite);
+    const high = Math.max(...finite);
+    const span = high === low ? 1 : high - low;
+    return (value: number) => {
+      const t = Math.max(0, Math.min(1, (value - low) / span));
+      return `rgb(${Math.round(255 * t)},${Math.round(160 * t)},${Math.round(255 * (1 - t))})`;
+    };
+  }, [color, view.values]);
   const cell = Math.max(1, Math.min(5, Math.floor(420 / Math.max(view.width, view.height))));
   const width = view.width * cell;
   const height = view.height * cell;

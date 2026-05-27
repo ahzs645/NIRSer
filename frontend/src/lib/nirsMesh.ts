@@ -74,3 +74,26 @@ export function parseJacobianFile(variables: Map<string, MatValue>): JacobianFil
 export function wavelengthChannelMask(mesh: NirsCoarseMesh, wavelength: number) {
   return mesh.wvl_ch.map((value) => value === wavelength);
 }
+
+export function jacobianSensitivityVolume(file: JacobianFile) {
+  const squaredMeans = file.jacobian[0]?.map((_, col) => {
+    const values = file.jacobian.map((row) => row[col]).filter(Number.isFinite);
+    return values.reduce((sum, value) => sum + value * value, 0) / Math.max(values.length, 1);
+  }) ?? [];
+  const dbValues = squaredMeans.map((value) => 10 * Math.log10(Math.max(value, 1e-300)));
+  const max = Math.max(...dbValues.filter(Number.isFinite));
+  const nodeValues = dbValues.map((value) => value - max);
+  const voxelCount = file.coarseMesh.vox_DIM[0] * file.coarseMesh.vox_DIM[1] * file.coarseMesh.vox_DIM[2];
+  const values = Array(voxelCount).fill(Number.NaN);
+  for (let voxel = 0; voxel < Math.min(voxelCount, file.coarseMesh.mesh2vox.length); voxel += 1) {
+    const meshIndex = file.coarseMesh.mesh2vox[voxel] - 1;
+    if (meshIndex >= 0 && meshIndex < nodeValues.length) values[voxel] = nodeValues[meshIndex];
+  }
+  return {
+    dims: file.coarseMesh.vox_DIM,
+    pixdim: [file.coarseMesh.voxRES, file.coarseMesh.voxRES, file.coarseMesh.voxRES] as [number, number, number],
+    datatype: 16,
+    voxOffset: 0,
+    values,
+  };
+}

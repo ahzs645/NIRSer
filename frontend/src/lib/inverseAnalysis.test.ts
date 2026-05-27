@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { externalFixtureDir } from "./externalFixtures";
 import {
   baselineSubtract,
   evaluateConcentrationAbs,
@@ -12,7 +13,7 @@ import {
 } from "./inverseAnalysis";
 import { parseNumericMatFile } from "./mat";
 
-const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const includedDataDir = externalFixtureDir();
 const channelSpaceDataAvailable = existsSync(`${includedDataDir}/dataChannelSpace.mat`);
 const averageHemoglobinDataAvailable = existsSync(`${includedDataDir}/AverageHemoglobinScalpBrain.mat`);
 

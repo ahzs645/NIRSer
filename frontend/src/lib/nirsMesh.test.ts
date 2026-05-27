@@ -1,10 +1,11 @@
 /// <reference types="node" />
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { externalFixtureDir } from "./externalFixtures";
 import { parseMatVariables } from "./mat";
-import { parseJacobianFile, wavelengthChannelMask } from "./nirsMesh";
+import { jacobianSensitivityVolume, parseJacobianFile, wavelengthChannelMask } from "./nirsMesh";
 
-const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const includedDataDir = externalFixtureDir();
 const externalDataAvailable = existsSync(`${includedDataDir}/JAC830.jac`);
 
 function readIncludedMat(filename: string) {
@@ -23,5 +24,6 @@ describe("NIRS mesh/Jacobian MAT adapters", () => {
     expect(jac.coarseMesh.link).toHaveLength(240);
     expect(jac.coarseMesh.vox_DIM).toHaveLength(3);
     expect(wavelengthChannelMask(jac.coarseMesh, 830).filter(Boolean)).toHaveLength(120);
+    expect(jacobianSensitivityVolume(jac).values.length).toBe(jac.coarseMesh.vox_DIM[0] * jac.coarseMesh.vox_DIM[1] * jac.coarseMesh.vox_DIM[2]);
   }, 30_000);
 });

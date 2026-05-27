@@ -1,9 +1,10 @@
 /// <reference types="node" />
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { externalFixtureDir } from "./externalFixtures";
 import { downsampleVolume, parseNifti, sliceVolume } from "./nifti";
 
-const includedDataDir = "/Users/ahmadjalil/Downloads/New Folder With Items 2/25866682";
+const includedDataDir = externalFixtureDir();
 const externalDataAvailable = existsSync(`${includedDataDir}/MPRAGE_R.nii`);
 
 function readIncluded(filename: string) {
